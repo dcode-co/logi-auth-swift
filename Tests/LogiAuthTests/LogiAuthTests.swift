@@ -19,4 +19,20 @@ final class LogiAuthTests: XCTestCase {
         XCTAssertEqual(cfg.issuer.absoluteString, "https://api.1pass.dev")
         XCTAssertEqual(cfg.scopes, ["openid", "profile:basic"])
     }
+
+    /// `LogiAuth.handle(_:)` returns false when no sign-in is in flight, so
+    /// RP apps can safely call it from `onOpenURL` for ALL incoming URLs
+    /// without consuming non-LogiAuth deep links.
+    @MainActor
+    func testHandleWithoutPendingSignInReturnsFalse() {
+        let consumed = LogiAuth.handle(URL(string: "easybracket://oauth/callback?code=x&state=y")!)
+        XCTAssertFalse(consumed)
+    }
+
+    /// `LogiAuthError` covers the two new failure modes added for app-to-app
+    /// handoff so RP apps can branch on them in their error UI.
+    func testHandoffErrorsHaveDescriptions() {
+        XCTAssertNotNil(LogiAuthError.handoffTimeout.errorDescription)
+        XCTAssertNotNil(LogiAuthError.alreadyInProgress.errorDescription)
+    }
 }
