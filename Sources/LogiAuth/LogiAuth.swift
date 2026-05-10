@@ -14,6 +14,23 @@ public final class LogiAuth: NSObject, ObservableObject {
     private var keychain: Keychain { Keychain(service: "dev.1pass.LogiAuth.\(config?.clientId ?? "default")") }
     private var session: ASWebAuthenticationSession?
 
+    /// Pending app-to-app handoff. Populated when signIn() opens the logi app
+    /// via Universal Link; resolved when the RP forwards the callback URL via
+    /// `LogiAuth.handle(_:)` from its `onOpenURL` / `onContinueUserActivity`
+    /// handler. Only one handoff can be in flight at a time.
+    private var pendingHandoff: PendingHandoff?
+
+    /// Default deadline for the user to complete approval in the logi app
+    /// before signIn() throws .handoffTimeout. Five minutes covers slow Face
+    /// ID retries + push approval but bounds the continuation lifetime.
+    private static let handoffTimeout: Duration = .seconds(300)
+
+    private struct PendingHandoff {
+        let state: String
+        let continuation: CheckedContinuation<URL, Error>
+        let timeoutTask: Task<Void, Never>
+    }
+
     private override init() { super.init() }
 
     /// Call once at app start (e.g. in @main App's init).
@@ -21,14 +38,44 @@ public final class LogiAuth: NSObject, ObservableObject {
         Task { @MainActor in shared.config = config }
     }
 
-    /// Drives the OAuth Authorization Code + PKCE flow.
-    /// - When the logi app is installed, iOS routes the authorize URL via
-    ///   Universal Links → user sees a native consent screen.
-    /// - When it's not installed, the system browser (ASWebAuthenticationSession)
-    ///   loads the web /oauth/authorize page.
+    /// Drives the OAuth Authorization Code + PKCE flow with app-to-app handoff
+    /// preferred. Two-stage:
+    ///
+    ///   1. `UIApplication.open(authorizeURL, options: [.universalLinksOnly: true])`.
+    ///      If the logi app is installed and its associated-domain entitlement
+    ///      claims `api.1pass.dev`, iOS launches it directly (no browser).
+    ///      The logi app processes consent natively, then opens the RP's
+    ///      `redirect_uri` with `?code=…&state=…`. The RP must call
+    ///      `LogiAuth.handle(_:)` from its `onOpenURL` /
+    ///      `onContinueUserActivity` handler to forward that URL into the SDK.
+    ///   2. If the system reports no associated app (universalLinksOnly returns
+    ///      false), fall back to `ASWebAuthenticationSession` loading the web
+    ///      `/oauth/authorize` page; the callback closes back into the SDK.
+    ///
+    /// Why try app-to-app first? Apple suppresses Universal Link handoff
+    /// inside ASWebAuthenticationSession, so the only way to reach the native
+    /// app is to call `UIApplication.open` BEFORE opening any auth session.
     @discardableResult
     public static func signIn(scopes: [String]? = nil) async throws -> LogiAuthResult {
         try await shared.signIn(scopes: scopes)
+    }
+
+    /// Forward a URL received via the RP's `onOpenURL` /
+    /// `onContinueUserActivity` handler back into the SDK. Returns `true` when
+    /// the URL matched a pending sign-in handoff (it was consumed); `false`
+    /// when no handoff is in flight (the RP should handle the URL itself).
+    ///
+    /// Call sites on the RP app:
+    ///
+    ///     .onOpenURL { url in
+    ///         _ = LogiAuth.handle(url)
+    ///     }
+    ///     .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+    ///         if let url = activity.webpageURL { _ = LogiAuth.handle(url) }
+    ///     }
+    @discardableResult
+    public static func handle(_ url: URL) -> Bool {
+        shared.handleCallback(url)
     }
 
     public static func signOut() {
@@ -53,6 +100,8 @@ public final class LogiAuth: NSObject, ObservableObject {
 
     private func signIn(scopes: [String]?) async throws -> LogiAuthResult {
         guard let cfg = config else { throw LogiAuthError.notConfigured }
+        guard pendingHandoff == nil else { throw LogiAuthError.alreadyInProgress }
+
         let pkce = PKCE.generate()
         let state = UUID().uuidString
 
@@ -69,7 +118,7 @@ public final class LogiAuth: NSObject, ObservableObject {
         ]
         guard let authURL = components.url else { throw LogiAuthError.invalidAuthorizeURL }
 
-        let callbackURL = try await beginWebAuthSession(authURL: authURL, callbackScheme: cfg.redirectURI.scheme)
+        let callbackURL = try await acquireCallback(authURL: authURL, state: state, callbackScheme: cfg.redirectURI.scheme)
         let (code, returnedState) = try parseCallback(callbackURL)
         guard returnedState == state else { throw LogiAuthError.stateMismatch }
 
@@ -77,6 +126,59 @@ public final class LogiAuth: NSObject, ObservableObject {
         persist(result)
         lastResult = result
         return result
+    }
+
+    /// Try app-to-app handoff first (preferred — works even when the RP would
+    /// otherwise wrap the IdP in ASWebAuthenticationSession). On failure
+    /// (`universalLinksOnly` returned false → no associated app installed),
+    /// fall back to ASWAS loading the web /oauth/authorize page.
+    private func acquireCallback(authURL: URL, state: String, callbackScheme: String?) async throws -> URL {
+        if await tryNativeHandoff(authURL: authURL) {
+            return try await waitForExternalCallback(state: state)
+        }
+        return try await beginWebAuthSession(authURL: authURL, callbackScheme: callbackScheme)
+    }
+
+    private func tryNativeHandoff(authURL: URL) async -> Bool {
+        await withCheckedContinuation { cont in
+            UIApplication.shared.open(authURL, options: [.universalLinksOnly: true]) { ok in
+                cont.resume(returning: ok)
+            }
+        }
+    }
+
+    /// Suspend until the RP forwards the redirect_uri callback via
+    /// `LogiAuth.handle(_:)`, or the deadline fires (.handoffTimeout).
+    /// `pendingHandoff` is cleared in both branches by the resolver.
+    private func waitForExternalCallback(state: String) async throws -> URL {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+            let timeout = Task { [weak self] in
+                try? await Task.sleep(for: Self.handoffTimeout)
+                guard !Task.isCancelled else { return }
+                await self?.failPendingHandoff(.handoffTimeout)
+            }
+            self.pendingHandoff = PendingHandoff(state: state, continuation: continuation, timeoutTask: timeout)
+        }
+    }
+
+    private func failPendingHandoff(_ error: LogiAuthError) {
+        guard let pending = pendingHandoff else { return }
+        pendingHandoff = nil
+        pending.timeoutTask.cancel()
+        pending.continuation.resume(throwing: error)
+    }
+
+    /// Resolve the pending handoff with the URL the RP received via onOpenURL.
+    /// State validation happens in the calling signIn() flow (parseCallback +
+    /// stateMismatch check) so we don't need to peek at the URL here — any
+    /// URL while a handoff is pending is consumed. Returns whether the URL
+    /// was consumed so the RP can choose to handle non-LogiAuth URLs itself.
+    fileprivate func handleCallback(_ url: URL) -> Bool {
+        guard let pending = pendingHandoff else { return false }
+        pendingHandoff = nil
+        pending.timeoutTask.cancel()
+        pending.continuation.resume(returning: url)
+        return true
     }
 
     private func beginWebAuthSession(authURL: URL, callbackScheme: String?) async throws -> URL {

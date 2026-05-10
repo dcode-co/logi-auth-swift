@@ -57,6 +57,12 @@ public enum LogiAuthError: LocalizedError, Sendable {
     case authorizationServerError(code: String, description: String?)
     case tokenExchangeFailed(status: Int, body: String)
     case noRefreshToken
+    /// Native app handoff started but no callback arrived within the deadline
+    /// (default 5 min). User likely dismissed the logi app without approving.
+    case handoffTimeout
+    /// signIn() called while a previous signIn() was still awaiting a callback.
+    /// Concurrent flows would race for the same continuation.
+    case alreadyInProgress
 
     public var errorDescription: String? {
         switch self {
@@ -76,6 +82,10 @@ public enum LogiAuthError: LocalizedError, Sendable {
             return "토큰 교환 실패 (\(status)): \(body)"
         case .noRefreshToken:
             return "refresh token 이 저장되어 있지 않습니다."
+        case .handoffTimeout:
+            return "logi 앱에서 응답이 오지 않았습니다 (시간 초과)."
+        case .alreadyInProgress:
+            return "이미 진행 중인 로그인이 있습니다."
         }
     }
 }
