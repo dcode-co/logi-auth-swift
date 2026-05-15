@@ -35,4 +35,19 @@ final class LogiAuthTests: XCTestCase {
         XCTAssertNotNil(LogiAuthError.handoffTimeout.errorDescription)
         XCTAssertNotNil(LogiAuthError.alreadyInProgress.errorDescription)
     }
+
+    /// Regression: `handle(_:)` must reject URLs that don't match the
+    /// configured redirect URI. Prevents an RP's unrelated `applinks:`
+    /// universal link from being force-fed to the OAuth parser
+    /// (ainote 2026-05-15 incident — `applinks:onrender.com` delivered an
+    /// unrelated UL while a logi sign-in was pending → SDK consumed it →
+    /// missingCode thrown to the user as a fake "OAuth failed").
+    @MainActor
+    func testHandleWithoutConfigDoesNotConsume() {
+        // With no LogiAuth.configure() called, handleCallback hits the
+        // `guard let cfg = config` branch and returns false even if a
+        // handoff were pending. Asserts the safety contract.
+        let consumed = LogiAuth.handle(URL(string: "https://other.example.com/foo?code=x&state=y")!)
+        XCTAssertFalse(consumed, "URL must not be consumed when no config is set")
+    }
 }

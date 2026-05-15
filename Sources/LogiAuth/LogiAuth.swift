@@ -168,17 +168,46 @@ public final class LogiAuth: NSObject, ObservableObject {
         pending.continuation.resume(throwing: error)
     }
 
-    /// Resolve the pending handoff with the URL the RP received via onOpenURL.
-    /// State validation happens in the calling signIn() flow (parseCallback +
-    /// stateMismatch check) so we don't need to peek at the URL here — any
-    /// URL while a handoff is pending is consumed. Returns whether the URL
-    /// was consumed so the RP can choose to handle non-LogiAuth URLs itself.
+    /// Resolve the pending handoff with the URL the RP received via onOpenURL
+    /// (or onContinueUserActivity for HTTPS redirect URIs). Returns whether
+    /// the URL was consumed so the RP can choose to handle non-LogiAuth URLs
+    /// itself.
+    ///
+    /// We must validate the URL matches the configured `redirect_uri` before
+    /// consuming. Without this check, an unrelated universal link delivered
+    /// while a sign-in is pending (e.g. an `applinks:` host the RP also owns)
+    /// would be force-fed to the OAuth parser and throw `.missingCode` —
+    /// confusing the user with a fake "OAuth failed" error when in fact no
+    /// callback was received yet. Reported by ainote 2026-05-15.
     fileprivate func handleCallback(_ url: URL) -> Bool {
         guard let pending = pendingHandoff else { return false }
+        guard let cfg = config, urlMatchesRedirect(url, redirect: cfg.redirectURI) else {
+            // Not our callback — leave the pending handoff alive so the real
+            // callback (or the timeout) can resolve it.
+            return false
+        }
         pendingHandoff = nil
         pending.timeoutTask.cancel()
         pending.continuation.resume(returning: url)
         return true
+    }
+
+    /// Match callback URL against the configured redirect URI by scheme + host
+    /// + path. Query string is intentionally not compared (it carries the
+    /// `code`/`state`/`error` we want to forward upstream).
+    private func urlMatchesRedirect(_ url: URL, redirect: URL) -> Bool {
+        guard
+            let urlScheme = url.scheme?.lowercased(),
+            let redirectScheme = redirect.scheme?.lowercased(),
+            urlScheme == redirectScheme
+        else { return false }
+        // Custom schemes (ainote://, easybracket://...) usually carry the
+        // path inside the host/path combo; we compare both case-insensitively
+        // to tolerate iOS lowercasing the host.
+        let urlHost = url.host?.lowercased() ?? ""
+        let redirectHost = redirect.host?.lowercased() ?? ""
+        guard urlHost == redirectHost else { return false }
+        return url.path == redirect.path
     }
 
     private func beginWebAuthSession(authURL: URL, callbackScheme: String?) async throws -> URL {
