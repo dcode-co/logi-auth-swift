@@ -136,7 +136,7 @@ public final class LogiAuth: NSObject, ObservableObject {
         if await tryNativeHandoff(authURL: authURL) {
             return try await waitForExternalCallback(state: state)
         }
-        return try await beginWebAuthSession(authURL: authURL, callbackScheme: callbackScheme)
+        return try await beginWebAuthSession(authURL: authURL, callbackScheme: callbackScheme, state: state)
     }
 
     private func tryNativeHandoff(authURL: URL) async -> Bool {
@@ -188,6 +188,11 @@ public final class LogiAuth: NSObject, ObservableObject {
         }
         pendingHandoff = nil
         pending.timeoutTask.cancel()
+        // HTTPS-fallback path keeps the ASWAS UI on screen until the RP
+        // delivers the callback URL. Dismiss it now so the user isn't left
+        // staring at the auth page after redirecting back to the app.
+        session?.cancel()
+        session = nil
         pending.continuation.resume(returning: url)
         return true
     }
@@ -210,14 +215,42 @@ public final class LogiAuth: NSObject, ObservableObject {
         return url.path == redirect.path
     }
 
-    private func beginWebAuthSession(authURL: URL, callbackScheme: String?) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            // For HTTPS Universal Link redirect URIs, callbackURLScheme should
-            // be nil and we rely on the system to deliver the URL via the
-            // configured callback handler (the RP app's onOpenURL or
-            // ASWebAuthenticationSession). For custom schemes pass scheme.
-            let scheme = (callbackScheme == "https" ? nil : callbackScheme)
-            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: scheme) { url, error in
+    private func beginWebAuthSession(authURL: URL, callbackScheme: String?, state: String) async throws -> URL {
+        // HTTPS Universal Link redirect URI: ASWAS cannot intercept the
+        // callback (Apple suppresses URL handoff inside ASWAS), so its
+        // completion handler will never fire with a URL. The system delivers
+        // the redirect via the RP app's onContinueUserActivity →
+        // LogiAuth.handle(_:). We set up pendingHandoff to await that, and
+        // start ASWAS only to render the /oauth/authorize page. ASWAS
+        // completion still fires on user cancel — we map that to
+        // .userCancelled by failing the handoff. (Pre-fix: continuation
+        // never resumed → signIn() hung forever for HTTPS-redirect RPs.)
+        if callbackScheme == "https" {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in
+                let timeout = Task { [weak self] in
+                    try? await Task.sleep(for: Self.handoffTimeout)
+                    guard !Task.isCancelled else { return }
+                    await self?.failPendingHandoff(.handoffTimeout)
+                }
+                self.pendingHandoff = PendingHandoff(state: state, continuation: continuation, timeoutTask: timeout)
+
+                let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: nil) { [weak self] _, error in
+                    guard let nserr = error as NSError?,
+                          nserr.domain == ASWebAuthenticationSessionError.errorDomain,
+                          nserr.code == ASWebAuthenticationSessionError.canceledLogin.rawValue
+                    else { return }
+                    Task { @MainActor in self?.failPendingHandoff(.userCancelled) }
+                }
+                session.presentationContextProvider = self
+                session.prefersEphemeralWebBrowserSession = true
+                self.session = session
+                session.start()
+            }
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            // Custom scheme — ASWAS receives callback URL directly.
+            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { url, error in
                 if let url = url {
                     continuation.resume(returning: url)
                 } else if let nserr = error as NSError?,
