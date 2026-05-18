@@ -20,7 +20,21 @@ import PackageDescription
 let package = Package(
     name: "LogiAuth",
     platforms: [
-        .iOS(.v26),
+        // SDK minimum = iOS 17. Picked deliberately:
+        //   - SDK consumers (RPs) span a wide deployment-target range; we
+        //     pin to the lowest the implementation actually requires, NOT
+        //     the logi-server iOS app's own target.
+        //   - Code uses Duration / Task.sleep(for:) (iOS 16+) and standard
+        //     async URLSession (iOS 15+). iOS 17 covers ~98% of the active
+        //     B2B/enterprise iPhone fleet as of 2026 (Forasoft 2025-07
+        //     adoption survey) and includes every currently-registered RP
+        //     (ainote ios_native, krx_listing, easy_bracket, …).
+        //   - Do NOT raise without a concrete API need; previous .v26 cut
+        //     off ainote (iOS 17) and forced a hand-rolled OAuth
+        //     coordinator (ainote 2026-05-12 incident). Do NOT drop below
+        //     .v17 without first removing Duration usage in LogiAuth.swift
+        //     (`Self.handoffTimeout`).
+        .iOS(.v17),
     ],
     products: [
         .library(name: "LogiAuth", targets: ["LogiAuth"]),
