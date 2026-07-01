@@ -17,7 +17,7 @@ final class LogiAuthTests: XCTestCase {
             redirectURI: URL(string: "https://rp.example.com/oauth/callback")!
         )
         XCTAssertEqual(cfg.issuer.absoluteString, "https://api.1pass.dev")
-        XCTAssertEqual(cfg.tokenIssuer, "logi")
+        XCTAssertEqual(cfg.tokenIssuer, "https://api.1pass.dev")
         XCTAssertEqual(cfg.scopes, ["openid", "profile:basic", "email"])
     }
 

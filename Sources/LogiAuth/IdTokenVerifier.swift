@@ -59,7 +59,8 @@ public struct JWKS: Decodable, Sendable {
 }
 
 public struct VerifyExpected: Sendable {
-    /// id_token.iss must equal this (logi issuer — the string "logi", NOT a URL).
+    /// id_token.iss must equal this (the logi issuer). In production this is the
+    /// canonical URL `https://api.1pass.dev`; `"logi"` is a dev-only fallback.
     public let issuer: String
     /// id_token.aud must contain this (the RP's client_id).
     public let clientId: String
