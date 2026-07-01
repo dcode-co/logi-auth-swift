@@ -125,14 +125,22 @@ public final class LogiAuth: NSObject, ObservableObject {
         // Verify the id_token (public-client trust boundary). This is the sole
         // new safety contract of v1.0 — without it `sub` would be unverified.
         guard let idToken = tokens.idToken else { throw LogiAuthError.missingIdToken }
-        let jwks = try await fetchJWKS(issuer: cfg.issuer)
+        let expected = VerifyExpected(issuer: cfg.tokenIssuer, clientId: cfg.clientId, nonce: nonce)
+
+        let (jwks, fromCache) = try await fetchJWKS(issuer: cfg.issuer)
         let verified: VerifiedIdToken
         do {
-            verified = try verifyIdToken(
-                idToken,
-                jwks: jwks,
-                expected: .init(issuer: cfg.tokenIssuer, clientId: cfg.clientId, nonce: nonce)
-            )
+            verified = try verifyIdToken(idToken, jwks: jwks, expected: expected)
+        } catch IdTokenVerifyError.unknownKid where fromCache {
+            // The IdP rotated signing keys while our JWKS cache was still within
+            // its TTL. A stale cache must not turn normal key rotation into an
+            // hour-long auth outage — bust it, refetch once, and re-verify.
+            do {
+                let (freshJwks, _) = try await fetchJWKS(issuer: cfg.issuer, forceRefresh: true)
+                verified = try verifyIdToken(idToken, jwks: freshJwks, expected: expected)
+            } catch let error as IdTokenVerifyError {
+                throw LogiAuthError.idTokenInvalid(code: error.code)
+            }
         } catch let error as IdTokenVerifyError {
             throw LogiAuthError.idTokenInvalid(code: error.code)
         }
@@ -152,13 +160,16 @@ public final class LogiAuth: NSObject, ObservableObject {
     }
 
     /// Fetch the IdP's JWKS for id_token signature verification, cached for
-    /// `jwksTTL`. On a `kid` rotation the first verification within the window
-    /// would fail `unknown_kid`; the RP can retry, which re-fetches after TTL.
-    private func fetchJWKS(issuer: URL) async throws -> JWKS {
-        if let cached = jwksCache,
+    /// `jwksTTL`. Returns whether the result came from the cache so the caller
+    /// can bust + refetch once on an `unknown_kid` (key rotation) rather than
+    /// failing sign-ins for the rest of the TTL window.
+    /// Pass `forceRefresh: true` to skip the cache and re-fetch.
+    private func fetchJWKS(issuer: URL, forceRefresh: Bool = false) async throws -> (jwks: JWKS, fromCache: Bool) {
+        if !forceRefresh,
+           let cached = jwksCache,
            cached.issuer == issuer,
            Date().timeIntervalSince(cached.fetchedAt) < Self.jwksTTL {
-            return cached.jwks
+            return (cached.jwks, true)
         }
         let base = issuer.absoluteString.hasSuffix("/")
             ? String(issuer.absoluteString.dropLast())
@@ -173,7 +184,7 @@ public final class LogiAuth: NSObject, ObservableObject {
         }
         let jwks = try JSONDecoder().decode(JWKS.self, from: data)
         jwksCache = (issuer, jwks, Date())
-        return jwks
+        return (jwks, false)
     }
 
     /// 32 random bytes, base64url — same shape as the PKCE verifier. Used for

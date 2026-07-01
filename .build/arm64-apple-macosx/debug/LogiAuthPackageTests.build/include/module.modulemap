@@ -1,0 +1,3 @@
+module LogiAuthPackageTests {
+    header "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/include/LogiAuthPackageTests-Swift.h"
+}

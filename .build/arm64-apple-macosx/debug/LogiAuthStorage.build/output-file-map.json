@@ -1,0 +1,26 @@
+{
+  "": {
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/primary.swiftdeps"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/AnonymousDevice.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/Keychain.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/LogiAuthStorage.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.dia"
+  }
+}

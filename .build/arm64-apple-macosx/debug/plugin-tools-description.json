@@ -1,0 +1,953 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.xctest/Contents/MacOS/LogiAuthPackageTests",
+      "packagePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage",
+      "productName" : "LogiAuthPackageTests"
+    }
+  ],
+  "copyCommands" : {
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth_LogiAuthTests.bundle/id-token-vectors.json" : {
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/Fixtures/id-token-vectors.json"
+        }
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth_LogiAuthTests.bundle/id-token-vectors.json"
+        }
+      ]
+    }
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.LogiAuth-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/sources",
+      "importPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/IdTokenVerifier.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/InAppBrowserEscape.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/LogiAuth.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/PKCE.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LogiAuth",
+      "moduleOutputPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuth.swiftmodule",
+      "objects" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j18",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/include/LogiAuth-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "logi_auth_swift_stage"
+      ],
+      "outputFileMapPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuth.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/IdTokenVerifier.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/InAppBrowserEscape.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/LogiAuth.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/Models.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/PKCE.swift"
+      ],
+      "tempsPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.LogiAuthPackageTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/sources",
+      "importPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LogiAuthPackageTests",
+      "moduleOutputPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j18",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/include/LogiAuthPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "logi_auth_swift_stage"
+      ],
+      "outputFileMapPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.LogiAuthStorage-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/sources",
+      "importPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/AnonymousDevice.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/Keychain.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/LogiAuthStorage.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuth.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LogiAuthStorage",
+      "moduleOutputPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthStorage.swiftmodule",
+      "objects" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx10.13",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j18",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/include/LogiAuthStorage-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "logi_auth_swift_stage"
+      ],
+      "outputFileMapPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthStorage.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/AnonymousDevice.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/Keychain.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/LogiAuthStorage.swift"
+      ],
+      "tempsPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.LogiAuthTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/sources",
+      "importPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/IdTokenVerifierTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/LogiAuthTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/DerivedSources/resource_bundle_accessor.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<LogiAuthTests-arm64-apple-macosx-debug.module-resources>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuth.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthStorage.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LogiAuthTests",
+      "moduleOutputPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthTests.swiftmodule",
+      "objects" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/IdTokenVerifierTests.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/LogiAuthTests.swift.o",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/resource_bundle_accessor.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j18",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+        "-module-cache-path",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "logi_auth_swift_stage"
+      ],
+      "outputFileMapPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/IdTokenVerifierTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/LogiAuthTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/resource_bundle_accessor.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules/LogiAuthTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/IdTokenVerifierTests.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/LogiAuthTests.swift",
+        "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/DerivedSources/resource_bundle_accessor.swift"
+      ],
+      "tempsPath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "LogiAuth" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LogiAuth",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-c",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/IdTokenVerifier.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/InAppBrowserEscape.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/LogiAuth.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/Models.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/PKCE.swift",
+      "-I",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j18",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/include/LogiAuth-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "LogiAuthPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LogiAuthPackageTests",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-c",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j18",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/include/LogiAuthPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "LogiAuthStorage" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LogiAuthStorage",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-c",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/AnonymousDevice.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/Keychain.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/LogiAuthStorage.swift",
+      "-I",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx10.13",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j18",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/include/LogiAuthStorage-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "LogiAuthTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LogiAuthTests",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-c",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/IdTokenVerifierTests.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/LogiAuthTests.swift",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/DerivedSources/resource_bundle_accessor.swift",
+      "-I",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j18",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE",
+      "-module-cache-path",
+      "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "logi_auth_swift_stage",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "LogiAuth" : [
+
+    ],
+    "LogiAuthPackageTests" : [
+      "LogiAuthTests",
+      "LogiAuthStorage",
+      "LogiAuth"
+    ],
+    "LogiAuthStorage" : [
+      "LogiAuth"
+    ],
+    "LogiAuthTests" : [
+      "LogiAuthStorage",
+      "LogiAuth"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/IdTokenVerifier.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/InAppBrowserEscape.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/LogiAuth.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/PKCE.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/sources"
+    },
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/sources"
+    },
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/AnonymousDevice.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/Keychain.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/LogiAuthStorage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/IdTokenVerifierTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/LogiAuthTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/resource_bundle_accessor.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/AnonymousDevice.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/Keychain.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuthStorage/LogiAuthStorage.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/sources"
+    },
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/IdTokenVerifierTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Tests/LogiAuthTests/LogiAuthTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/DerivedSources/resource_bundle_accessor.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthTests.build/sources"
+    },
+    "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}
