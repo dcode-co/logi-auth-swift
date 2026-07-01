@@ -1,0 +1,40 @@
+{
+  "": {
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/primary.swiftdeps"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/IdTokenVerifier.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/IdTokenVerifier.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/InAppBrowserEscape.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/InAppBrowserEscape.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/LogiAuth.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/LogiAuth.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/Models.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/Models.dia"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/Sources/LogiAuth/PKCE.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuth.build/PKCE.dia"
+  }
+}

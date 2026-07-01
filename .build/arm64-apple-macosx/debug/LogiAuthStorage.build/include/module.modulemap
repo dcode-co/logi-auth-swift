@@ -1,0 +1,3 @@
+module LogiAuthStorage {
+    header "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthStorage.build/include/LogiAuthStorage-Swift.h"
+}

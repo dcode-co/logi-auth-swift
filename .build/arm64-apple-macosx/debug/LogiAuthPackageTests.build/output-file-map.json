@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.d",
+    "object": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/seunghan/toy/dcode-co-migration/logi-auth-swift-stage/.build/arm64-apple-macosx/debug/LogiAuthPackageTests.build/runner.dia"
+  }
+}
