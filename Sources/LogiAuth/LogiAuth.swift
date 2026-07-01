@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import AuthenticationServices
 import UIKit
 
@@ -8,11 +9,17 @@ import UIKit
 public final class LogiAuth: NSObject, ObservableObject {
     public static let shared = LogiAuth()
 
-    @Published public private(set) var lastResult: LogiAuthResult?
+    @Published public private(set) var lastSession: LogiSession?
 
     private var config: LogiAuthConfig?
     private var keychain: Keychain { Keychain(service: "dev.1pass.LogiAuth.\(config?.clientId ?? "default")") }
     private var session: ASWebAuthenticationSession?
+
+    /// In-memory JWKS cache. The IdP rotates signing keys rarely; caching for
+    /// one hour avoids a network round-trip on every sign-in while still
+    /// picking up rotations on the next window. Keyed by issuer URL.
+    private var jwksCache: (issuer: URL, jwks: JWKS, fetchedAt: Date)?
+    private static let jwksTTL: TimeInterval = 3600
 
     /// Pending app-to-app handoff. Populated when signIn() opens the logi app
     /// via Universal Link; resolved when the RP forwards the callback URL via
@@ -56,7 +63,7 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// inside ASWebAuthenticationSession, so the only way to reach the native
     /// app is to call `UIApplication.open` BEFORE opening any auth session.
     @discardableResult
-    public static func signIn(scopes: [String]? = nil) async throws -> LogiAuthResult {
+    public static func signIn(scopes: [String]? = nil) async throws -> LogiSession {
         try await shared.signIn(scopes: scopes)
     }
 
@@ -98,12 +105,16 @@ public final class LogiAuth: NSObject, ObservableObject {
 
     // MARK: - Implementation
 
-    private func signIn(scopes: [String]?) async throws -> LogiAuthResult {
+    private func signIn(scopes: [String]?) async throws -> LogiSession {
         guard let cfg = config else { throw LogiAuthError.notConfigured }
         guard pendingHandoff == nil else { throw LogiAuthError.alreadyInProgress }
 
         let pkce = PKCE.generate()
         let state = UUID().uuidString
+        // nonce is always generated and always verified — it binds the id_token
+        // to this specific authorize request (replay defense). Server echoes it
+        // through authorize → grant → id_token (id_token_issuer.rb).
+        let nonce = Self.randomURLToken()
 
         var components = URLComponents(url: cfg.issuer, resolvingAgainstBaseURL: false)!
         components.path = "/oauth/authorize"
@@ -113,6 +124,7 @@ public final class LogiAuth: NSObject, ObservableObject {
             .init(name: "redirect_uri", value: cfg.redirectURI.absoluteString),
             .init(name: "scope", value: (scopes ?? cfg.scopes).joined(separator: " ")),
             .init(name: "state", value: state),
+            .init(name: "nonce", value: nonce),
             .init(name: "code_challenge", value: pkce.challenge),
             .init(name: "code_challenge_method", value: "S256")
         ]
@@ -122,10 +134,72 @@ public final class LogiAuth: NSObject, ObservableObject {
         let (code, returnedState) = try parseCallback(callbackURL)
         guard returnedState == state else { throw LogiAuthError.stateMismatch }
 
-        let result = try await exchangeCodeForToken(code: code, codeVerifier: pkce.verifier, config: cfg)
-        persist(result)
-        lastResult = result
-        return result
+        let tokens = try await exchangeCodeForToken(code: code, codeVerifier: pkce.verifier, config: cfg)
+
+        // Verify the id_token (public-client trust boundary). This is the sole
+        // new safety contract of v1.0 — without it `sub` would be unverified.
+        guard let idToken = tokens.idToken else { throw LogiAuthError.missingIdToken }
+        let jwks = try await fetchJWKS(issuer: cfg.issuer)
+        let verified: VerifiedIdToken
+        do {
+            verified = try verifyIdToken(
+                idToken,
+                jwks: jwks,
+                expected: .init(issuer: cfg.tokenIssuer, clientId: cfg.clientId, nonce: nonce)
+            )
+        } catch let error as IdTokenVerifyError {
+            throw LogiAuthError.idTokenInvalid(code: error.code)
+        }
+
+        let session = LogiSession(
+            sub: verified.sub,
+            email: verified.claims["email"] as? String,
+            idToken: idToken,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+            scope: tokens.scope,
+            tokenType: tokens.tokenType
+        )
+        persist(tokens)
+        lastSession = session
+        return session
+    }
+
+    /// Fetch the IdP's JWKS for id_token signature verification, cached for
+    /// `jwksTTL`. On a `kid` rotation the first verification within the window
+    /// would fail `unknown_kid`; the RP can retry, which re-fetches after TTL.
+    private func fetchJWKS(issuer: URL) async throws -> JWKS {
+        if let cached = jwksCache,
+           cached.issuer == issuer,
+           Date().timeIntervalSince(cached.fetchedAt) < Self.jwksTTL {
+            return cached.jwks
+        }
+        let base = issuer.absoluteString.hasSuffix("/")
+            ? String(issuer.absoluteString.dropLast())
+            : issuer.absoluteString
+        guard let url = URL(string: base + "/.well-known/jwks.json") else {
+            throw LogiAuthError.jwksFetchFailed(status: 0)
+        }
+        let (data, response) = try await URLSession.shared.data(from: url)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else {
+            throw LogiAuthError.jwksFetchFailed(status: status)
+        }
+        let jwks = try JSONDecoder().decode(JWKS.self, from: data)
+        jwksCache = (issuer, jwks, Date())
+        return jwks
+    }
+
+    /// 32 random bytes, base64url — same shape as the PKCE verifier. Used for
+    /// the OIDC nonce.
+    private static func randomURLToken() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        return Data(bytes).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 
     /// Try app-to-app handoff first (preferred — works even when the RP would
@@ -357,7 +431,6 @@ public final class LogiAuth: NSObject, ObservableObject {
         }
         let result = try decodeTokenResponse(data)
         persist(result)
-        lastResult = result
         return result
     }
 
@@ -369,7 +442,7 @@ public final class LogiAuth: NSObject, ObservableObject {
 
     private func signOutInternal() {
         keychain.delete("refresh_token")
-        lastResult = nil
+        lastSession = nil
     }
 }
 
