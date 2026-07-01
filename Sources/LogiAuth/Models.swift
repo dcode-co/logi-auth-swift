@@ -8,9 +8,11 @@ public struct LogiAuthConfig: Sendable {
     /// Falls back to a custom-scheme URI if you cannot register a domain.
     public let redirectURI: URL
     public let issuer: URL
-    /// Expected `iss` claim inside the id_token. This is the logi issuer STRING
-    /// ("logi"), NOT the `issuer` URL — it mirrors the server's `OIDC_ISSUER`
-    /// (`jwt_verifier.rb`). Only override for a non-standard deployment.
+    /// Expected `iss` claim inside the id_token. In production this is the
+    /// canonical issuer URL `https://api.1pass.dev` (published via OIDC
+    /// discovery and asserted by the server) — the URL is the source of truth.
+    /// The bare string `"logi"` is a dev-only fallback and must NOT be used
+    /// against production tokens. Only override for a non-standard deployment.
     public let tokenIssuer: String
     public let scopes: [String]
 
@@ -18,7 +20,7 @@ public struct LogiAuthConfig: Sendable {
         clientId: String,
         redirectURI: URL,
         issuer: URL = URL(string: "https://api.1pass.dev")!,
-        tokenIssuer: String = "logi",
+        tokenIssuer: String = "https://api.1pass.dev",
         scopes: [String] = ["openid", "profile:basic", "email"]
     ) {
         self.clientId = clientId
