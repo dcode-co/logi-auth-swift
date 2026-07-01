@@ -1,5 +1,5 @@
 {
-  "_comment": "logi id_token verification golden vectors. SoT: generate.mjs. Mirror of server/app/lib/oauth/jwt_verifier.rb. All 4 SDKs (iOS/Android/Web/Flutter) MUST produce identical results. JWKS is a fixed snapshot so tests run offline (no network).",
+  "_comment": "logi id_token verification golden vectors. SoT: generate.mjs. Mirror of server/app/lib/oauth/jwt_verifier.rb. All 7 SDKs (Web/iOS/Android/Flutter/Node/Ruby/Python) MUST produce identical results. JWKS is a fixed snapshot so tests run offline (no network).",
   "now": 1700000000,
   "expected": {
     "issuer": "logi",
@@ -89,6 +89,38 @@
       "expect": {
         "valid": false,
         "error": "nonce_mismatch"
+      }
+    },
+    {
+      "name": "wrong_alg",
+      "token": "eyJhbGciOiJIUzI1NiIsImtpZCI6ImxvZ2ktdGVzdC0yMDI2IiwidHlwIjoiSldUIn0.eyJpc3MiOiJsb2dpIiwiYXVkIjoibG9naV90ZXN0X2NsaWVudF9hYmMiLCJzdWIiOiJwYWlyd2lzZS1zdWItMDAwMSIsImV4cCI6MTcwMDAwMzYwMCwiaWF0IjoxNjk5OTk5OTcwLCJub25jZSI6Im5vbmNlLWFiYzEyMyIsImp0aSI6Imp0aS0wMDAxIn0.UhU1bF3EO2MVzRrPbkFhuW3fkvW3Iiv4MwdkrYAL6BFwh6j2lVmtBLY6TINdXW7YDZXUqEgRwNUjb-TJRLuCcmIAlBn1fB1UbGe7PLuRa3sk8-i629Nenlhfjx-znWEZI106dBIE61oPNJS50EAJwkckfMOpnsJBGgQRfmkqm6PEFlQIWypIeey28KusWcONo-QcKhpHqQsDV2OOnQGH5SvleHHHfQvKLPrZ91lIW4LYklkfWpMSkDrxNJT9XAefQrS6lW14y9OucvEi9x0WvrEtI7efEnu6wHoxoHE2KjjvuhvWS3LHNiKLVrNPaWtAZ0Bbg41JdRIYGyN0a8Pn1g",
+      "expect": {
+        "valid": false,
+        "error": "bad_signature"
+      }
+    },
+    {
+      "name": "azp_mismatch",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImxvZ2ktdGVzdC0yMDI2IiwidHlwIjoiSldUIn0.eyJpc3MiOiJsb2dpIiwiYXVkIjoibG9naV90ZXN0X2NsaWVudF9hYmMiLCJzdWIiOiJwYWlyd2lzZS1zdWItMDAwMSIsImV4cCI6MTcwMDAwMzYwMCwiaWF0IjoxNjk5OTk5OTcwLCJub25jZSI6Im5vbmNlLWFiYzEyMyIsImp0aSI6Imp0aS0wMDAxIiwiYXpwIjoib3RoZXJfY2xpZW50In0.bq5-nMlNevxfJviXgOCCdSR6dqkLcMauevXvUhtWBfECf5-G059JJ_SbYUrzTEDobVLS-oGpW1KZh4eabLy_-p5jhF3X290Bn_We8PYmmNWeWEKLw5SCfr92087tpL-HDRJK7SRQkc3ApwgMr_wtqkFoufar-Nb5rqeIZiTcdqvAOwzVh8Xaf3L-ydIP5i41MNYVtguVBmqFb8iemj8xyQllMpSKt3VPkI1LVvdMSZ54hM_ZdF8--ii30WOV_6CgTzkYHsNzXmHqqZala7opAjxxzY_ihc83qzd-_0oH33DW5aa4iZIco4xV2C3mG4A5dtUgrUyyoVfMP7mu2BkjnQ",
+      "expect": {
+        "valid": false,
+        "error": "aud_mismatch"
+      }
+    },
+    {
+      "name": "multi_aud_no_azp",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImxvZ2ktdGVzdC0yMDI2IiwidHlwIjoiSldUIn0.eyJpc3MiOiJsb2dpIiwiYXVkIjpbImxvZ2lfdGVzdF9jbGllbnRfYWJjIiwib3RoZXJfY2xpZW50Il0sInN1YiI6InBhaXJ3aXNlLXN1Yi0wMDAxIiwiZXhwIjoxNzAwMDAzNjAwLCJpYXQiOjE2OTk5OTk5NzAsIm5vbmNlIjoibm9uY2UtYWJjMTIzIiwianRpIjoianRpLTAwMDEifQ.qMKsV64v8HMY387WKXl2ZlRpRxSB6ENawbp7MWsEuVBgh-KdzIqOIFZVv6dlxaD-mxfohAa5YawzAMf16_736cRH8U9gEB-oqMeUSwcXlGYio8J1hAmshaNJXzwmeoLiuneP0ToJDwmLpEsuPEigNMLpLLFejC8FVxI0Ye9OX996EiTykBjj7i0GBfgsEBBUy4t_qnkLDeFWmMucO4WI091DRaRtxN3I8NCMMWUwaluop744bJkeSx9I9qeztij1ECm3mpnUBzhixvEc1FaorPcZD8gBRwpjuf2RJB3WEMqMC_E2EqLu-hGKnhSEIsF9m-CgmT798H9Jwj-KW-jprw",
+      "expect": {
+        "valid": false,
+        "error": "aud_mismatch"
+      }
+    },
+    {
+      "name": "multi_aud_valid_azp",
+      "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6ImxvZ2ktdGVzdC0yMDI2IiwidHlwIjoiSldUIn0.eyJpc3MiOiJsb2dpIiwiYXVkIjpbImxvZ2lfdGVzdF9jbGllbnRfYWJjIiwib3RoZXJfY2xpZW50Il0sInN1YiI6InBhaXJ3aXNlLXN1Yi0wMDAxIiwiZXhwIjoxNzAwMDAzNjAwLCJpYXQiOjE2OTk5OTk5NzAsIm5vbmNlIjoibm9uY2UtYWJjMTIzIiwianRpIjoianRpLTAwMDEiLCJhenAiOiJsb2dpX3Rlc3RfY2xpZW50X2FiYyJ9.StcDABdmWDTdyEWEUqTSOSq1IxWvq48qQeGVws137nLVVhml8Xqy2XDC4hOIh4ja_O4gOEIOcucpXIL08a51WozLn_NvZGzp9q136uZDq2eDid994aDffBPAnXHMRgQ4BmqJpEJrnrvj9Txv9FSiqwFBpj_42FqD4xWZYHi91QrRiTcH467pqIPsk1WxVcOcpUeKiBQTQmtZboF8hEhrl0X-nSpaWapIJ0b8UrzNY3gsib2SQxt6nfVqWqzrXgDwuLqUXMjn5jZQu6bdTuFego6iY0CpvLzfxJ8KXSWODyc-H9I24O7prHcWzwewXdkyJKl_QWtHh4XpLIAuQL0s2A",
+      "expect": {
+        "valid": true,
+        "sub": "pairwise-sub-0001"
       }
     }
   ]

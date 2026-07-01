@@ -111,6 +111,12 @@ public func verifyIdToken(
         let payload = (try? JSONSerialization.jsonObject(with: payloadData)) as? [String: Any]
     else { throw IdTokenVerifyError.malformed }
 
+    // Only RS256 is accepted — never verify a token whose header declares
+    // another (or no) algorithm, even if the RSA signature happens to match.
+    guard (header["alg"] as? String) == "RS256" else {
+        throw IdTokenVerifyError.badSignature
+    }
+
     // kid → JWKS key.
     guard let kid = header["kid"] as? String, !kid.isEmpty else {
         throw IdTokenVerifyError.missingKid
@@ -142,6 +148,15 @@ public func verifyIdToken(
 
     if !audienceMatches(payload["aud"], clientId: expected.clientId) {
         throw IdTokenVerifyError.audMismatch
+    }
+
+    // OIDC §3.1.3.7 azp: with multiple audiences an azp MUST be present; whenever
+    // azp is present it MUST equal our client_id.
+    let azp = payload["azp"]
+    if let audArray = payload["aud"] as? [Any], audArray.count > 1 {
+        guard (azp as? String) == expected.clientId else { throw IdTokenVerifyError.audMismatch }
+    } else if azp != nil && !(azp is NSNull) {
+        guard (azp as? String) == expected.clientId else { throw IdTokenVerifyError.audMismatch }
     }
 
     guard let exp = numericClaim(payload["exp"]), exp > now - clockSkewSec else {
