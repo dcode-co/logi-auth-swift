@@ -49,6 +49,7 @@ let package = Package(
             name: "LogiAuthTests",
             dependencies: ["LogiAuth"],
             path: "Tests/LogiAuthTests",
+            resources: [.copy("Fixtures/id-token-vectors.json")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]

@@ -17,7 +17,8 @@ final class LogiAuthTests: XCTestCase {
             redirectURI: URL(string: "https://rp.example.com/oauth/callback")!
         )
         XCTAssertEqual(cfg.issuer.absoluteString, "https://api.1pass.dev")
-        XCTAssertEqual(cfg.scopes, ["openid", "profile:basic"])
+        XCTAssertEqual(cfg.tokenIssuer, "logi")
+        XCTAssertEqual(cfg.scopes, ["openid", "profile:basic", "email"])
     }
 
     /// `LogiAuth.handle(_:)` returns false when no sign-in is in flight, so

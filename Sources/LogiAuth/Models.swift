@@ -8,18 +8,61 @@ public struct LogiAuthConfig: Sendable {
     /// Falls back to a custom-scheme URI if you cannot register a domain.
     public let redirectURI: URL
     public let issuer: URL
+    /// Expected `iss` claim inside the id_token. This is the logi issuer STRING
+    /// ("logi"), NOT the `issuer` URL — it mirrors the server's `OIDC_ISSUER`
+    /// (`jwt_verifier.rb`). Only override for a non-standard deployment.
+    public let tokenIssuer: String
     public let scopes: [String]
 
     public init(
         clientId: String,
         redirectURI: URL,
         issuer: URL = URL(string: "https://api.1pass.dev")!,
-        scopes: [String] = ["openid", "profile:basic"]
+        tokenIssuer: String = "logi",
+        scopes: [String] = ["openid", "profile:basic", "email"]
     ) {
         self.clientId = clientId
         self.redirectURI = redirectURI
         self.issuer = issuer
+        self.tokenIssuer = tokenIssuer
         self.scopes = scopes
+    }
+}
+
+/// The verified outcome of a successful `signIn()`. `sub` is populated only
+/// after this SDK has verified the id_token's RS256 signature and claims — it
+/// is the sole new safety contract of v1.0. Identical shape across all 4 SDKs.
+public struct LogiSession: Sendable, Equatable {
+    /// Verified subject from the id_token — pairwise per client.
+    public let sub: String
+    /// `email` claim, if present and the scope was granted.
+    public let email: String?
+    /// Raw id_token (already verified by this SDK).
+    public let idToken: String
+    public let accessToken: String
+    public let refreshToken: String?
+    public let expiresAt: Date?
+    public let scope: String?
+    public let tokenType: String
+
+    public init(
+        sub: String,
+        email: String? = nil,
+        idToken: String,
+        accessToken: String,
+        refreshToken: String? = nil,
+        expiresAt: Date? = nil,
+        scope: String? = nil,
+        tokenType: String = "Bearer"
+    ) {
+        self.sub = sub
+        self.email = email
+        self.idToken = idToken
+        self.accessToken = accessToken
+        self.refreshToken = refreshToken
+        self.expiresAt = expiresAt
+        self.scope = scope
+        self.tokenType = tokenType
     }
 }
 
@@ -63,6 +106,13 @@ public enum LogiAuthError: LocalizedError, Sendable {
     /// signIn() called while a previous signIn() was still awaiting a callback.
     /// Concurrent flows would race for the same continuation.
     case alreadyInProgress
+    /// Token response had no id_token — was `openid` in the requested scopes?
+    case missingIdToken
+    /// id_token RS256 signature or claim verification failed. `code` mirrors
+    /// the golden-vector error string (e.g. "bad_signature", "aud_mismatch").
+    case idTokenInvalid(code: String)
+    /// Could not fetch the IdP's JWKS for id_token verification.
+    case jwksFetchFailed(status: Int)
 
     public var errorDescription: String? {
         switch self {
@@ -86,6 +136,12 @@ public enum LogiAuthError: LocalizedError, Sendable {
             return "logi 앱에서 응답이 오지 않았습니다 (시간 초과)."
         case .alreadyInProgress:
             return "이미 진행 중인 로그인이 있습니다."
+        case .missingIdToken:
+            return "id_token 이 응답에 없습니다 (scope 에 openid 가 있었나요?)."
+        case .idTokenInvalid(let code):
+            return "id_token 검증 실패 (\(code))."
+        case .jwksFetchFailed(let status):
+            return "JWKS 조회 실패 (\(status))."
         }
     }
 }
