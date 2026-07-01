@@ -1,4 +1,5 @@
 import Foundation
+import LogiAuth
 
 // MARK: - Public types
 

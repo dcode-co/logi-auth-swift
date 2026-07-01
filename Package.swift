@@ -37,7 +37,12 @@ let package = Package(
         .iOS(.v17),
     ],
     products: [
+        // Core connector — auth only (PKCE → nonce → authorize → verify → sub).
         .library(name: "LogiAuth", targets: ["LogiAuth"]),
+        // Optional: Keychain-backed token persistence, refresh(), and the
+        // anonymous-device bootstrap. Depend on this ONLY if you want the SDK
+        // to store tokens for you; otherwise use LogiAuth alone.
+        .library(name: "LogiAuthStorage", targets: ["LogiAuthStorage"]),
     ],
     targets: [
         .target(
@@ -45,9 +50,15 @@ let package = Package(
             path: "Sources/LogiAuth",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "LogiAuthStorage",
+            dependencies: ["LogiAuth"],
+            path: "Sources/LogiAuthStorage",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .testTarget(
             name: "LogiAuthTests",
-            dependencies: ["LogiAuth"],
+            dependencies: ["LogiAuth", "LogiAuthStorage"],
             path: "Tests/LogiAuthTests",
             resources: [.copy("Fixtures/id-token-vectors.json")],
             swiftSettings: [.swiftLanguageMode(.v5)]

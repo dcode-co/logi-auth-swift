@@ -12,7 +12,6 @@ public final class LogiAuth: NSObject, ObservableObject {
     @Published public private(set) var lastSession: LogiSession?
 
     private var config: LogiAuthConfig?
-    private var keychain: Keychain { Keychain(service: "dev.1pass.LogiAuth.\(config?.clientId ?? "default")") }
     private var session: ASWebAuthenticationSession?
 
     /// In-memory JWKS cache. The IdP rotates signing keys rarely; caching for
@@ -85,23 +84,10 @@ public final class LogiAuth: NSObject, ObservableObject {
         shared.handleCallback(url)
     }
 
-    public static func signOut() {
-        Task { @MainActor in shared.signOutInternal() }
-    }
-
-    /// Returns a fresh access token using the stored refresh token.
-    /// Throws `.noRefreshToken` if no refresh token is persisted.
-    @discardableResult
-    public static func refresh() async throws -> LogiAuthResult {
-        try await shared.refresh()
-    }
-
-    public static func currentRefreshToken() -> String? {
-        // Synchronous read for early-launch decisions.
-        let cfg = MainActor.assumeIsolated { shared.config }
-        guard let cfg else { return nil }
-        return Keychain(service: "dev.1pass.LogiAuth.\(cfg.clientId)").get("refresh_token")
-    }
+    // Token persistence, refresh(), signOut(), and anonymous-device bootstrap
+    // are NOT part of the auth core — they live in the optional `LogiAuthStorage`
+    // product. The core connector only proves identity; where/whether tokens are
+    // stored is the RP app's concern. See LogiAuthStorage.
 
     // MARK: - Implementation
 
@@ -161,7 +147,6 @@ public final class LogiAuth: NSObject, ObservableObject {
             scope: tokens.scope,
             tokenType: tokens.tokenType
         )
-        persist(tokens)
         lastSession = session
         return session
     }
@@ -405,44 +390,6 @@ public final class LogiAuth: NSObject, ObservableObject {
             scope: decoded.scope,
             tokenType: decoded.token_type ?? "Bearer"
         )
-    }
-
-    private func refresh() async throws -> LogiAuthResult {
-        guard let cfg = config else { throw LogiAuthError.notConfigured }
-        guard let refreshToken = keychain.get("refresh_token") else { throw LogiAuthError.noRefreshToken }
-
-        var request = URLRequest(url: cfg.issuer.appendingPathComponent("oauth/token"))
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let body = [
-            "grant_type": "refresh_token",
-            "refresh_token": refreshToken,
-            "client_id": cfg.clientId
-        ]
-        request.httpBody = body
-            .map { "\($0.key)=\(($0.value).addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")" }
-            .joined(separator: "&")
-            .data(using: .utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else {
-            throw LogiAuthError.tokenExchangeFailed(status: status, body: String(data: data, encoding: .utf8) ?? "")
-        }
-        let result = try decodeTokenResponse(data)
-        persist(result)
-        return result
-    }
-
-    private func persist(_ result: LogiAuthResult) {
-        if let refresh = result.refreshToken {
-            keychain.set(refresh, for: "refresh_token")
-        }
-    }
-
-    private func signOutInternal() {
-        keychain.delete("refresh_token")
-        lastSession = nil
     }
 }
 
