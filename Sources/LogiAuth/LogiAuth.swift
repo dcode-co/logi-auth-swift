@@ -130,14 +130,14 @@ public final class LogiAuth: NSObject, ObservableObject {
         let (jwks, fromCache) = try await fetchJWKS(issuer: cfg.issuer)
         let verified: VerifiedIdToken
         do {
-            verified = try verifyIdToken(idToken, jwks: jwks, expected: expected)
+            verified = try verifyIdToken(idToken, jwks: jwks, expected: expected, accessToken: tokens.accessToken)
         } catch IdTokenVerifyError.unknownKid where fromCache {
             // The IdP rotated signing keys while our JWKS cache was still within
             // its TTL. A stale cache must not turn normal key rotation into an
             // hour-long auth outage — bust it, refetch once, and re-verify.
             do {
                 let (freshJwks, _) = try await fetchJWKS(issuer: cfg.issuer, forceRefresh: true)
-                verified = try verifyIdToken(idToken, jwks: freshJwks, expected: expected)
+                verified = try verifyIdToken(idToken, jwks: freshJwks, expected: expected, accessToken: tokens.accessToken)
             } catch let error as IdTokenVerifyError {
                 throw LogiAuthError.idTokenInvalid(code: error.code)
             }
@@ -191,7 +191,12 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// the OIDC nonce.
     private static func randomURLToken() -> String {
         var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        // Fail-closed: a CSPRNG failure would leave `bytes` all-zero, yielding a
+        // predictable nonce (replay-defense bypass). Entropy failure is
+        // unrecoverable, so we fail-fast rather than proceeding with weak bytes.
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            preconditionFailure("randomURLToken: SecRandomCopyBytes failed to produce CSPRNG entropy")
+        }
         return Data(bytes).base64EncodedString()
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
@@ -338,14 +343,23 @@ public final class LogiAuth: NSObject, ObservableObject {
         }
     }
 
-    private func parseCallback(_ url: URL) throws -> (code: String, state: String) {
+    // `internal` (not `private`) so the duplicate-key regression test can drive
+    // the real parser; not part of the public SDK surface.
+    func parseCallback(_ url: URL) throws -> (code: String, state: String) {
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let items = comps.queryItems
         else { throw LogiAuthError.missingCode }
-        let dict = Dictionary(uniqueKeysWithValues: items.compactMap { item -> (String, String)? in
-            guard let value = item.value else { return nil }
-            return (item.name, value)
-        })
+        // OAuth callback params should be unique; a duplicate key (malformed or
+        // hostile callback) must not crash the app. RFC 6749 leaves duplicates
+        // undefined, so we take first-wins and drop the rest instead of
+        // `Dictionary(uniqueKeysWithValues:)`, which traps on a repeated key.
+        let dict = Dictionary(
+            items.compactMap { item -> (String, String)? in
+                guard let value = item.value else { return nil }
+                return (item.name, value)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
         if let err = dict["error"] {
             throw LogiAuthError.authorizationServerError(code: err, description: dict["error_description"])
         }

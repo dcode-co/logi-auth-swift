@@ -51,4 +51,16 @@ final class LogiAuthTests: XCTestCase {
         let consumed = LogiAuth.handle(URL(string: "https://other.example.com/foo?code=x&state=y")!)
         XCTAssertFalse(consumed, "URL must not be consumed when no config is set")
     }
+
+    /// Regression (S1): a callback URL with duplicate query keys must NOT crash.
+    /// The old `Dictionary(uniqueKeysWithValues:)` trapped on a repeated key;
+    /// we now take first-wins. A malformed/hostile callback should degrade
+    /// gracefully, never `fatalError`.
+    @MainActor
+    func testParseCallbackDuplicateKeysFirstWinsNoCrash() throws {
+        let url = URL(string: "myapp://cb?code=first&code=second&state=s1&state=s2")!
+        let (code, state) = try LogiAuth.shared.parseCallback(url)
+        XCTAssertEqual(code, "first", "duplicate code must resolve first-wins")
+        XCTAssertEqual(state, "s1", "duplicate state must resolve first-wins")
+    }
 }

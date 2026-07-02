@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import CryptoKit
 
 // RS256 id_token 검증 — Security.framework(SecKey), zero third-party deps.
 // 서버 검증 규칙 mirror: logi server/app/lib/oauth/jwt_verifier.rb
@@ -25,19 +26,23 @@ public enum IdTokenVerifyError: Error, Equatable, Sendable {
     case expired
     case nonceMismatch
     case missingClaim
+    /// id_token carried an `at_hash` that did not match the provided
+    /// access_token (OIDC §3.1.3.6 access-token substitution defense).
+    case atHashMismatch
 
     /// Stable machine code, identical across the 4 SDKs.
     public var code: String {
         switch self {
-        case .malformed:     return "malformed"
-        case .missingKid:    return "missing_kid"
-        case .unknownKid:    return "unknown_kid"
-        case .badSignature:  return "bad_signature"
-        case .issMismatch:   return "iss_mismatch"
-        case .audMismatch:   return "aud_mismatch"
-        case .expired:       return "expired"
-        case .nonceMismatch: return "nonce_mismatch"
-        case .missingClaim:  return "missing_claim"
+        case .malformed:      return "malformed"
+        case .missingKid:     return "missing_kid"
+        case .unknownKid:     return "unknown_kid"
+        case .badSignature:   return "bad_signature"
+        case .issMismatch:    return "iss_mismatch"
+        case .audMismatch:    return "aud_mismatch"
+        case .expired:        return "expired"
+        case .nonceMismatch:  return "nonce_mismatch"
+        case .missingClaim:   return "missing_claim"
+        case .atHashMismatch: return "at_hash_mismatch"
         }
     }
 }
@@ -56,6 +61,29 @@ public struct JWK: Decodable, Sendable {
 public struct JWKS: Decodable, Sendable {
     public let keys: [JWK]
     public init(keys: [JWK]) { self.keys = keys }
+
+    private enum CodingKeys: String, CodingKey { case keys }
+
+    /// Decode leniently: a JWKS may contain non-RSA keys (e.g. EC with
+    /// `crv`/`x`/`y` and no RSA `n`/`e`). Those would fail `JWK`'s required
+    /// `n`/`e` decode and, with a strict array decode, blow up the WHOLE JWKS —
+    /// silently breaking sign-in the moment the IdP adds an EC key. Instead we
+    /// drop any entry that doesn't decode as an RSA-shaped `JWK` and keep the
+    /// rest, so the kty filter downstream still finds the RS256 signing key.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let wrappers = try container.decode([LenientJWK].self, forKey: .keys)
+        self.keys = wrappers.compactMap { $0.jwk }
+    }
+
+    /// Per-element wrapper whose decode never throws — yields `nil` for entries
+    /// that aren't RSA-shaped so a single unmodelled key can't fail the array.
+    private struct LenientJWK: Decodable {
+        let jwk: JWK?
+        init(from decoder: Decoder) throws {
+            jwk = try? JWK(from: decoder)
+        }
+    }
 }
 
 public struct VerifyExpected: Sendable {
@@ -83,17 +111,22 @@ public struct VerifiedIdToken {
 /// Throws `IdTokenVerifyError` on any failure. Never returns an unverified subject.
 ///
 /// Claim check order matches the server (`jwt_verifier.rb`) and the Web verifier:
-///   signature → iss → aud → exp → iat → nonce → sub.
+///   signature → iss → aud → exp → iat → nonce → sub → at_hash.
 ///
 /// - Parameters:
 ///   - now: Unix seconds; defaults to now. Injectable for deterministic tests.
 ///   - clockSkewSec: Allowed clock skew in seconds (default 60).
+///   - accessToken: The token endpoint's `access_token`. When provided AND the
+///     id_token carries an `at_hash`, the two are cryptographically bound
+///     (OIDC §3.1.3.6). Omit (default `nil`) to skip at_hash — present-only so
+///     callers that verify id_token alone (e.g. refresh) stay non-breaking.
 public func verifyIdToken(
     _ idToken: String,
     jwks: JWKS,
     expected: VerifyExpected,
     now: TimeInterval = Date().timeIntervalSince1970,
-    clockSkewSec: TimeInterval = 60
+    clockSkewSec: TimeInterval = 60,
+    accessToken: String? = nil
 ) throws -> VerifiedIdToken {
     let parts = idToken
         .split(separator: ".", omittingEmptySubsequences: false)
@@ -122,7 +155,17 @@ public func verifyIdToken(
     guard let kid = header["kid"] as? String, !kid.isEmpty else {
         throw IdTokenVerifyError.missingKid
     }
-    guard let jwk = jwks.keys.first(where: { $0.kid == kid }) else {
+    // Select an RSA signing key. Filtering by kty/use/alg BEFORE matching kid
+    // keeps sign-in working if the IdP later mixes non-RSA (e.g. EC) keys into
+    // the JWKS: we pick the RSA/sig/RS256 key with our kid instead of tripping
+    // over an EC key that happens to share it. A kid miss still yields
+    // `unknownKid` (unchanged) — never a bad_signature at key-selection time.
+    guard let jwk = jwks.keys.first(where: {
+        $0.kty == "RSA"
+            && ($0.use == nil || $0.use == "sig")
+            && ($0.alg == nil || $0.alg == "RS256")
+            && $0.kid == kid
+    }) else {
         throw IdTokenVerifyError.unknownKid
     }
 
@@ -179,6 +222,19 @@ public func verifyIdToken(
         throw IdTokenVerifyError.missingClaim
     }
 
+    // at_hash (OIDC §3.1.3.6): present-only. When the id_token carries an at_hash
+    // AND the caller supplied the access_token, bind them — this defeats an
+    // attacker substituting a different access_token alongside a valid id_token.
+    // Server computes at_hash = base64url(left-128-bits(SHA256(access_token))).
+    // (id_token_issuer.rb). Skipped when at_hash absent or no access_token given.
+    if let atHash = payload["at_hash"] as? String, let accessToken = accessToken {
+        let digest = SHA256.hash(data: Data(accessToken.utf8))
+        let leftHalf = Data(digest.prefix(16))  // left 128 bits
+        guard base64urlNoPad(leftHalf) == atHash else {
+            throw IdTokenVerifyError.atHashMismatch
+        }
+    }
+
     return VerifiedIdToken(sub: sub, claims: payload)
 }
 
@@ -194,6 +250,14 @@ private func audienceMatches(_ aud: Any?, clientId: String) -> Bool {
 /// exp/iat range without loss for any realistic token lifetime.
 private func numericClaim(_ value: Any?) -> TimeInterval? {
     (value as? NSNumber)?.doubleValue
+}
+
+/// base64url without padding — used for at_hash comparison (OIDC §3.1.3.6).
+private func base64urlNoPad(_ data: Data) -> String {
+    data.base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
 }
 
 func base64urlDecode(_ segment: String) -> Data? {

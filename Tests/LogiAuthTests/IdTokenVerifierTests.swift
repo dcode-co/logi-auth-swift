@@ -13,7 +13,7 @@ final class IdTokenVerifierTests: XCTestCase {
         let jwks: JWKS
         let cases: [Case]
         struct Expected: Decodable { let issuer: String; let clientId: String; let nonce: String? }
-        struct Case: Decodable { let name: String; let token: String; let expect: Expect }
+        struct Case: Decodable { let name: String; let token: String; let accessToken: String?; let expect: Expect }
         struct Expect: Decodable { let valid: Bool; let sub: String?; let error: String? }
     }
 
@@ -36,7 +36,7 @@ final class IdTokenVerifierTests: XCTestCase {
 
         for c in v.cases {
             do {
-                let result = try verifyIdToken(c.token, jwks: v.jwks, expected: expected, now: v.now)
+                let result = try verifyIdToken(c.token, jwks: v.jwks, expected: expected, now: v.now, accessToken: c.accessToken)
                 XCTAssertTrue(c.expect.valid, "case '\(c.name)' expected to be invalid but verified")
                 if let wantSub = c.expect.sub {
                     XCTAssertEqual(result.sub, wantSub, "case '\(c.name)' sub mismatch")
