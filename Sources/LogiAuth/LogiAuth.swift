@@ -66,6 +66,18 @@ public final class LogiAuth: NSObject, ObservableObject {
         try await shared.signIn(scopes: scopes)
     }
 
+    /// Verify the id_token returned by `LogiAuthStorage.refresh()` and promote it
+    /// to a verified `LogiSession`. The core connector owns the JWKS cache, so
+    /// verification of a refreshed token must go through here — `refresh()` alone
+    /// returns an UNVERIFIED `LogiAuthResult`, and trusting its `sub`/`email`
+    /// directly would reopen the same signature gap `signIn` closes. The refresh
+    /// response carries no nonce, so nonce is not checked; `at_hash` still binds
+    /// when the token carries one. Additive: `signIn`'s contract is unchanged.
+    @discardableResult
+    public static func verify(_ result: LogiAuthResult) async throws -> LogiSession {
+        try await shared.verify(result)
+    }
+
     /// Forward a URL received via the RP's `onOpenURL` /
     /// `onContinueUserActivity` handler back into the SDK. Returns `true` when
     /// the URL matched a pending sign-in handoff (it was consumed); `false`
@@ -122,22 +134,66 @@ public final class LogiAuth: NSObject, ObservableObject {
 
         let tokens = try await exchangeCodeForToken(code: code, codeVerifier: pkce.verifier, config: cfg)
 
-        // Verify the id_token (public-client trust boundary). This is the sole
-        // new safety contract of v1.0 — without it `sub` would be unverified.
+        // Verify the id_token (public-client trust boundary) and assemble the
+        // verified session. Shared with verify(_:) via makeVerifiedSession so the
+        // JWKS cache + key-rotation refetch behave identically on both paths.
         guard let idToken = tokens.idToken else { throw LogiAuthError.missingIdToken }
-        let expected = VerifyExpected(issuer: cfg.tokenIssuer, clientId: cfg.clientId, nonce: nonce)
+        return try await makeVerifiedSession(
+            idToken: idToken,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+            scope: tokens.scope,
+            tokenType: tokens.tokenType,
+            nonce: nonce,
+            cfg: cfg
+        )
+    }
 
+    /// Instance impl for `verify(_:)`. See the static overload's docs. The
+    /// refresh response carries no nonce, so `nonce == nil` (nonce binds the
+    /// original authorize request, which a refresh has none of).
+    private func verify(_ result: LogiAuthResult) async throws -> LogiSession {
+        guard let cfg = config else { throw LogiAuthError.notConfigured }
+        guard let idToken = result.idToken else { throw LogiAuthError.missingIdToken }
+        return try await makeVerifiedSession(
+            idToken: idToken,
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            expiresAt: result.expiresAt,
+            scope: result.scope,
+            tokenType: result.tokenType,
+            nonce: nil,
+            cfg: cfg
+        )
+    }
+
+    /// Verify an id_token and assemble a `LogiSession`. Shared by `signIn`
+    /// (nonce-bound) and `verify(_:)` (refresh path, `nonce == nil`). Busts and
+    /// refetches the JWKS exactly once on `unknown_kid` (key rotation) so a
+    /// stale cache never turns a rotation into an hour-long outage.
+    private func makeVerifiedSession(
+        idToken: String,
+        accessToken: String,
+        refreshToken: String?,
+        expiresAt: Date?,
+        scope: String?,
+        tokenType: String,
+        nonce: String?,
+        cfg: LogiAuthConfig
+    ) async throws -> LogiSession {
+        let expected = VerifyExpected(issuer: cfg.tokenIssuer, clientId: cfg.clientId, nonce: nonce)
         let (jwks, fromCache) = try await fetchJWKS(issuer: cfg.issuer)
         let verified: VerifiedIdToken
         do {
-            verified = try verifyIdToken(idToken, jwks: jwks, expected: expected, accessToken: tokens.accessToken)
+            verified = try verifyIdToken(idToken, jwks: jwks, expected: expected, accessToken: accessToken)
         } catch IdTokenVerifyError.unknownKid where fromCache {
             // The IdP rotated signing keys while our JWKS cache was still within
             // its TTL. A stale cache must not turn normal key rotation into an
             // hour-long auth outage — bust it, refetch once, and re-verify.
             do {
                 let (freshJwks, _) = try await fetchJWKS(issuer: cfg.issuer, forceRefresh: true)
-                verified = try verifyIdToken(idToken, jwks: freshJwks, expected: expected, accessToken: tokens.accessToken)
+                verified = try verifyIdToken(idToken, jwks: freshJwks, expected: expected, accessToken: accessToken)
             } catch let error as IdTokenVerifyError {
                 throw LogiAuthError.idTokenInvalid(code: error.code)
             }
@@ -149,11 +205,11 @@ public final class LogiAuth: NSObject, ObservableObject {
             sub: verified.sub,
             email: verified.claims["email"] as? String,
             idToken: idToken,
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresAt: tokens.expiresAt,
-            scope: tokens.scope,
-            tokenType: tokens.tokenType
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt,
+            scope: scope,
+            tokenType: tokenType
         )
         lastSession = session
         return session
