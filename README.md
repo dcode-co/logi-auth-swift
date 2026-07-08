@@ -18,16 +18,18 @@ OAuth 2.0 Authorization Code + PKCE (S256), RFC 7636 + RFC 8252 compliant.
 ```
 https://github.com/dcode-co/logi-auth-swift
 ```
-버전: `0.2.0` 이상.
+버전: `1.1.0` 이상.
 
 ### Package.swift
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dcode-co/logi-auth-swift", from: "0.2.0"),
+    .package(url: "https://github.com/dcode-co/logi-auth-swift", from: "1.1.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
         .product(name: "LogiAuth", package: "logi-auth-swift"),
+        // 토큰 영속화·refresh·device PAK·revoke 를 쓰면 함께 링크:
+        .product(name: "LogiAuthStorage", package: "logi-auth-swift"),
     ]),
 ]
 ```
@@ -125,16 +127,33 @@ applinks:api.1pass.dev
 
 ## API
 
+### `LogiAuth` (core connector — 인증만)
 | Method | Returns | Description |
 |---|---|---|
 | `LogiAuth.configure(_:)` | `Void` | 앱 시작 시 1회 호출 |
-| `LogiAuth.signIn(scopes:)` | `async throws -> LogiAuthResult` | 로그인 플로우 시작 |
-| `LogiAuth.refresh()` | `async throws -> LogiAuthResult` | silent refresh |
-| `LogiAuth.signOut()` | `Void` | 저장된 refresh token 삭제 |
-| `LogiAuth.handle(url:)` | `Bool` | app-to-app callback 처리 (onOpenURL 에서 호출) |
-| `LogiAuth.shared.lastResult` | `@Published` | SwiftUI observable |
+| `LogiAuth.signIn(scopes:)` | `async throws -> LogiSession` | 로그인 (id_token RS256 서명검증 내장) |
+| `LogiAuth.verify(_:)` | `async throws -> LogiSession` | `refresh()` 결과의 id_token 을 검증해 세션으로 승격 · **v1.1.0** |
+| `LogiAuth.handle(_:)` | `Bool` | app-to-app callback 처리 (onOpenURL 에서 호출) |
+| `LogiAuth.shared.lastSession` | `@Published LogiSession?` | SwiftUI observable |
 
-에러 타입: `LogiAuthError.notConfigured`, `.userCancelled`, `.stateMismatch`, `.tokenEndpoint(_)`, `.network(_)`
+### `LogiAuthStorage` (선택 — 토큰 영속화·백채널)
+| Method | Returns | Description |
+|---|---|---|
+| `LogiAuthStorage(clientId:issuer:)` | — | 인스턴스 생성 |
+| `.persist(_:)` / `.currentRefreshToken()` | | refresh_token Keychain 저장/조회 |
+| `.refresh()` | `async throws -> LogiAuthResult` | silent refresh (미검증 — `LogiAuth.verify` 로 승격) |
+| `.signOut()` | `Void` | 로컬 refresh_token 삭제 (서버 토큰은 유지) |
+| `.revokeRefreshToken()` | `async` | 서버 refresh_token revoke (RFC 7009) · **v1.1.0** |
+| `.disconnectApp(pak:)` | `async -> Bool` | RP 연동 해지 `DELETE connected_apps` (PAK) · **v1.1.0** |
+
+### `LogiDeviceKey` (선택 — device-bound PAK, **v1.1.0**)
+| Method | Returns | Description |
+|---|---|---|
+| `LogiDeviceKey(issuer:clientId:keychainService:)` | — | actor 생성 (마이그레이션 시 레거시 `keychainService` 주입) |
+| `.exchange(oauthJWT:)` | `async throws -> LogiDeviceKeyResult` | OAuth JWT → device-bound PAK 교환 (멱등·in-flight 병합) |
+| `.storedDeviceRecordID()` / `.reset()` | | device 자격 조회 / 삭제 |
+
+에러 타입: `LogiAuthError` — `.notConfigured`, `.userCancelled`, `.stateMismatch`, `.handoffTimeout`, `.idTokenInvalid(code:)`, `.tokenExchangeFailed(status:body:)`, `.jwksFetchFailed(status:)` 등
 
 ---
 
@@ -149,7 +168,12 @@ applinks:api.1pass.dev
 
 ## Versioning
 
-- `v0.2.x` — current stable. iOS 17+, macOS 14+
+- `v1.1.x` — current stable. iOS 17+, macOS 14+
+  - **v1.1.0** — `LogiAuth.verify(_:)` (refresh 경로 id_token 검증), `LogiDeviceKey`
+    (device-bound PAK 교환), `LogiAuthStorage.revokeRefreshToken()` / `disconnectApp(pak:)`.
+    전부 additive — 기존 심볼 시그니처 불변, 마이그레이션 불필요.
+  - **v1.0.x** — id_token RS256 서명검증 내장(`signIn() -> LogiSession`), `at_hash` 바인딩,
+    JWKS `kty` 필터. 토큰 영속화·refresh 는 `LogiAuthStorage` 로 분리.
 - Semantic versioning. Breaking changes → major bump + migration guide.
 - Tag 패턴: `vX.Y.Z`
 
