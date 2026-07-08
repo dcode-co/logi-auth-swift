@@ -122,3 +122,85 @@ public struct LogiAuthStorage: Sendable {
         )
     }
 }
+
+// MARK: - Backchannel revoke / disconnect
+
+extension LogiAuthStorage {
+
+    /// Revoke the stored refresh_token server-side (RFC 7009). Public client:
+    /// sends `client_id` only — a `client_secret` would be rejected by the
+    /// server as a downgrade. Best-effort: never throws, and the server returns
+    /// 200 even for an unknown token (RFC 7009 §2.2, so token validity isn't
+    /// leaked). No-op when nothing is stored.
+    ///
+    /// This does NOT clear the local Keychain — call `signOut()` for that. The
+    /// split lets the caller order "revoke server token, THEN wipe local" (the
+    /// wipe destroys the token this call needs).
+    public func revokeRefreshToken() async {
+        guard let token = currentRefreshToken(), !token.isEmpty else { return }
+        await revoke(token: token, hint: "refresh_token")
+    }
+
+    /// Revoke an arbitrary token server-side (RFC 7009). Best-effort — never
+    /// throws. `hint` maps to `token_type_hint` when provided.
+    public func revoke(token: String, hint: String? = nil) async {
+        var req = URLRequest(url: issuer.appendingPathComponent("oauth/revoke"))
+        req.httpMethod = "POST"
+        req.timeoutInterval = 10
+        req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        var params = ["token": token, "client_id": clientId]
+        if let hint { params["token_type_hint"] = hint }
+        req.httpBody = Self.formURLEncode(params)
+        _ = try? await URLSession.shared.data(for: req)
+    }
+
+    /// Disconnect this RP from the user's logi account:
+    /// `DELETE /api/v1/me/connected_apps/{clientId}`, authenticated with the
+    /// device **PAK** (needs the `profile:write` scope). The server revokes the
+    /// grant, access token, device PAK, and consent, then fans out an OIDC
+    /// back-channel logout.
+    ///
+    /// Returns `true` ONLY on 2xx or 404 (already disconnected — idempotent).
+    /// Returns `false` on EVERY other outcome — 401/403 (PAK unauthorized or
+    /// missing `profile:write`), 5xx, timeouts, and transport errors — so the
+    /// caller can preserve local credentials and retry. This primitive never
+    /// wipes anything; the caller owns the revoke-before-wipe ordering and the
+    /// "server success ⟹ local wipe, else preserve" invariant.
+    public func disconnectApp(pak: String) async -> Bool {
+        guard !pak.isEmpty else { return false }
+        let url = issuer.appendingPathComponent("api/v1/me/connected_apps/\(clientId)")
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.timeoutInterval = 15
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue("Bearer \(pak)", forHTTPHeaderField: "Authorization")
+        do {
+            let (_, response) = try await URLSession.shared.data(for: req)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            // Success = 2xx or 404 (idempotent already-disconnected). Everything
+            // else — 401/403 unauthorized, 5xx, or any non-success status — is
+            // false so the caller keeps the PAK and retries. (codex #3)
+            return (200..<300).contains(status) || status == 404
+        } catch {
+            // Timeout / transport error — treat as failure, never as success.
+            return false
+        }
+    }
+
+    /// x-www-form-urlencoded encoder. Percent-encodes everything except RFC 3986
+    /// unreserved chars — `.urlQueryAllowed` passes '+' through and the server
+    /// would read it as a space, corrupting a base64 token.
+    private static func formURLEncode(_ params: [String: String]) -> Data {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return params
+            .map { key, value in
+                let k = key.addingPercentEncoding(withAllowedCharacters: allowed) ?? key
+                let v = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+                return "\(k)=\(v)"
+            }
+            .joined(separator: "&")
+            .data(using: .utf8) ?? Data()
+    }
+}
