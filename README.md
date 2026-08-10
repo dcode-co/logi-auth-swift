@@ -134,7 +134,43 @@ applinks:api.1pass.dev
 | `LogiAuth.signIn(scopes:)` | `async throws -> LogiSession` | 로그인 (id_token RS256 서명검증 내장) |
 | `LogiAuth.verify(_:)` | `async throws -> LogiSession` | `refresh()` 결과의 id_token 을 검증해 세션으로 승격 · **v1.1.0** |
 | `LogiAuth.handle(_:)` | `Bool` | app-to-app callback 처리 (onOpenURL 에서 호출) |
+| `LogiAuth.cancel()` | `Bool` | 진행 중 `signIn()` 을 `.userCancelled` 로 중단 · **v1.2.0** |
+| `LogiAuth.handoffKind` | `LogiHandoffKind?` | 진행 중인 갈래(`.native`/`.web`), 없으면 nil · **v1.2.0** |
 | `LogiAuth.shared.lastSession` | `@Published LogiSession?` | SwiftUI observable |
+
+#### 승인 없이 돌아온 사용자 끊기 (`cancel()`)
+
+app-to-app 갈래는 사용자가 logi 앱에서 **승인하지 않고 돌아와도 iOS 가 아무 신호를 주지
+않는다.** `signIn()` 은 5분 `.handoffTimeout` 까지 매달리고, 그 사이 모든 `signIn()` 은
+`.alreadyInProgress` 로 튕긴다. 이탈 판정은 RP 몫이고, 그 판정을 SDK 로 전달하는 통로가
+`cancel()` 이다.
+
+🔴 **`handoffKind == .native` 로 반드시 게이트할 것.** 웹 갈래는 ASWebAuthenticationSession
+시트가 화면에 떠 있고 시스템이 이미 취소를 알려주므로, 홈으로 나갔다 돌아온 것은 이탈이
+아니다. 무조건 `cancel()` 하면 **멀쩡히 살아있는 웹 로그인을 끊는다.**
+
+```swift
+.onChange(of: scenePhase) { _, phase in
+    guard phase == .active, LogiAuth.handoffKind == .native else { return }
+    // 콜백 도착과 foreground 전환의 순서는 보장되지 않는다 — 짧은 유예를 둔다.
+    Task {
+        try? await Task.sleep(for: .seconds(2))
+        // 🔴 유예가 끝난 뒤 다시 확인한다. 그 사이 원래 흐름이 콜백으로
+        // 끝났을 수 있고, `cancel()` 은 "지금 진행 중인" 흐름에 작용하므로
+        // 재확인 없이 부르면 그새 시작된 다른 로그인을 끊는다.
+        guard LogiAuth.handoffKind == .native else { return }
+        LogiAuth.cancel()
+    }
+}
+```
+
+> 재확인해도 완전히 닫히지는 않는다 — 유예 2초 안에 **또 다른 app-to-app 로그인**이
+> 시작되면 그것을 끊는다. 사용자가 2초 안에 재시도하고 다시 앱을 이탈해야 하는
+> 조합이라 실사용에서는 드물지만, 정확성이 필요하면 유예를 줄이거나 RP 가 자체
+> 요청 id 로 게이트할 것.
+
+> Android SDK 는 `configure()` 에서 `registerCancelDetector` 로 **SDK 가 직접** 이탈을
+> 감지한다. iOS 는 씬 구조 가정을 피하려 판정을 RP 에 남겼다 — 같은 문제, 다른 층.
 
 ### `LogiAuthStorage` (선택 — 토큰 영속화·백채널)
 | Method | Returns | Description |
@@ -168,7 +204,16 @@ applinks:api.1pass.dev
 
 ## Versioning
 
-- `v1.1.x` — current stable. iOS 17+, macOS 14+
+- `v1.2.x` — current stable. iOS 17+, macOS 14+
+  - **v1.2.0** — `LogiAuth.cancel()` + `LogiAuth.handoffKind`. app-to-app 갈래에서
+    승인 없이 돌아온 사용자를 RP 가 끊을 수 있다(이전에는 5분 타임아웃까지 대기).
+    심볼 시그니처 불변 — 추가만 한다.
+    ⚠️ **동작 변경 1건**: `.alreadyInProgress` 가드가 모든 갈래를 덮는다. 이전에는
+    `pendingHandoff` 만 봐서 **커스텀 스킴 redirect URI** RP 는 `signIn()` 중복 호출이
+    통과했고, 두 흐름이 단일 ASWAS 슬롯을 공유해 먼저 뜬 쪽 continuation 이 영영
+    해소되지 않았다. 이제 두 번째 호출은 `.alreadyInProgress` 를 던진다. HTTPS
+    redirect URI RP 는 영향 없다(이전에도 가드에 걸렸다).
+- `v1.1.x`
   - **v1.1.0** — `LogiAuth.verify(_:)` (refresh 경로 id_token 검증), `LogiDeviceKey`
     (device-bound PAK 교환), `LogiAuthStorage.revokeRefreshToken()` / `disconnectApp(pak:)`.
     전부 additive — 기존 심볼 시그니처 불변, 마이그레이션 불필요.

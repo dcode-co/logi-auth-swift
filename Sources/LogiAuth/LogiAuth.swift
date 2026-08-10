@@ -37,6 +37,26 @@ public final class LogiAuth: NSObject, ObservableObject {
         let timeoutTask: Task<Void, Never>
     }
 
+    /// Which route the in-flight signIn() took, or nil when none is running.
+    /// Deliberately NOT stored on `PendingHandoff`: the custom-scheme web route
+    /// (`beginWebAuthSession`, callbackScheme != "https") never populates
+    /// `pendingHandoff` — its ASWAS completion handler owns the continuation
+    /// directly — so a flag living there would read `nil` on that route and the
+    /// RP would mistake an in-flight web sign-in for no sign-in at all.
+    private var activeHandoffKind: LogiHandoffKind?
+
+    /// Monotonic id of the newest signIn(). Late cleanup hops must only tear
+    /// down state their own flow still owns — see the `defer` in `signIn`.
+    private var handoffGeneration: UInt64 = 0
+
+    /// True for the whole duration of a signIn(), across every route. Backs
+    /// the `.alreadyInProgress` guard; `pendingHandoff` cannot, because the
+    /// custom-scheme route never sets it.
+    ///
+    /// `internal` (not `private`) so the serialization regression test can read
+    /// it; not part of the public SDK surface.
+    private(set) var signInInFlight = false
+
     private override init() { super.init() }
 
     /// Call once at app start (e.g. in @main App's init).
@@ -96,6 +116,35 @@ public final class LogiAuth: NSObject, ObservableObject {
         shared.handleCallback(url)
     }
 
+    /// Which route the in-flight `signIn()` took, or `nil` when no sign-in is
+    /// running. Read this before deciding to `cancel()` — the two routes need
+    /// opposite handling on foreground-return. See `LogiHandoffKind`.
+    ///
+    ///     if LogiAuth.handoffKind == .native { LogiAuth.cancel() }
+    ///
+    /// Cancelling unconditionally would kill a live `.web` sign-in whose sheet
+    /// is still on screen.
+    public static var handoffKind: LogiHandoffKind? { shared.activeHandoffKind }
+
+    /// Cancel an in-flight `signIn()`, resolving it with
+    /// `LogiAuthError.userCancelled`.
+    ///
+    /// This is the only way out of a `.native` app-to-app handoff that the user
+    /// abandoned. iOS reports nothing when someone returns from the logi app
+    /// without approving, so `signIn()` would otherwise stay suspended until
+    /// the 5-minute `.handoffTimeout` — and every `signIn()` in between throws
+    /// `.alreadyInProgress`. Detecting the return is the RP's job (scene phase);
+    /// this hands the verdict to the SDK. Gate it on
+    /// `handoffKind == .native` — see `handoffKind`.
+    ///
+    /// Returns whether a sign-in was actually cancelled. `false` means the
+    /// callback had already landed or nothing was in flight, which is safe to
+    /// ignore — a cancel racing a callback loses, and the sign-in completes.
+    @discardableResult
+    public static func cancel() -> Bool {
+        shared.cancelPending()
+    }
+
     // Token persistence, refresh(), signOut(), and anonymous-device bootstrap
     // are NOT part of the auth core — they live in the optional `LogiAuthStorage`
     // product. The core connector only proves identity; where/whether tokens are
@@ -105,7 +154,37 @@ public final class LogiAuth: NSObject, ObservableObject {
 
     private func signIn(scopes: [String]?) async throws -> LogiSession {
         guard let cfg = config else { throw LogiAuthError.notConfigured }
-        guard pendingHandoff == nil else { throw LogiAuthError.alreadyInProgress }
+        // Serialize on the whole call, not on `pendingHandoff`. That property
+        // is only populated by the native and HTTPS routes — the custom-scheme
+        // route keeps its continuation inside the ASWAS completion handler and
+        // leaves it nil. Guarding on it therefore let two custom-scheme
+        // sign-ins run at once over a single `session` slot: the second
+        // overwrote the first, stranding the first continuation forever and
+        // pointing cancel() at the wrong flow. `.alreadyInProgress` already
+        // documents this intent ("Concurrent flows would race for the same
+        // continuation"); the old guard just under-enforced it.
+        guard !signInInFlight else { throw LogiAuthError.alreadyInProgress }
+        signInInFlight = true
+        // Clear shared state on exit — success, throw, or cancel. Leaving the
+        // route set would make `handoffKind` report a finished sign-in, and an
+        // RP gating cancel() on it would cancel the NEXT one.
+        //
+        // Generation-scoped even though sign-ins are now serialized: the
+        // custom-scheme cleanup hop is queued onto the MainActor and can land
+        // after THIS call returns and the next one has started.
+        handoffGeneration &+= 1
+        let generation = handoffGeneration
+        defer {
+            signInInFlight = false
+            // `return` is illegal inside defer — plain `if`, not `guard`.
+            if handoffGeneration == generation {
+                activeHandoffKind = nil
+                // Custom-scheme ASWAS keeps `session` set past its callback;
+                // drop it here so a later cancel() doesn't mistake a finished
+                // sign-in for a live one.
+                session = nil
+            }
+        }
 
         let pkce = PKCE.generate()
         let state = UUID().uuidString
@@ -265,8 +344,10 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// fall back to ASWAS loading the web /oauth/authorize page.
     private func acquireCallback(authURL: URL, state: String, callbackScheme: String?) async throws -> URL {
         if await tryNativeHandoff(authURL: authURL) {
+            activeHandoffKind = .native
             return try await waitForExternalCallback(state: state)
         }
+        activeHandoffKind = .web
         return try await beginWebAuthSession(authURL: authURL, callbackScheme: callbackScheme, state: state)
     }
 
@@ -297,6 +378,39 @@ public final class LogiAuth: NSObject, ObservableObject {
         pendingHandoff = nil
         pending.timeoutTask.cancel()
         pending.continuation.resume(throwing: error)
+    }
+
+    /// Drop the finished ASWAS session, but only while the sign-in that opened
+    /// it is still the current one. A late cleanup hop from a previous flow
+    /// must not clear a newer flow's session.
+    private func releaseSession(ifGeneration generation: UInt64) {
+        guard handoffGeneration == generation else { return }
+        session = nil
+    }
+
+    /// Instance impl for `cancel()`. Covers all three suspension shapes:
+    ///
+    ///   - `.native` handoff — `pendingHandoff` holds the continuation;
+    ///     `failPendingHandoff` resolves it.
+    ///   - `.web` HTTPS route — BOTH `pendingHandoff` and `session` are live.
+    ///   - `.web` custom-scheme route — no `pendingHandoff`; the ASWAS
+    ///     completion handler owns the continuation, and `session.cancel()`
+    ///     wakes it with `canceledLogin` → `.userCancelled`.
+    ///
+    /// Order matters: consume `pendingHandoff` BEFORE cancelling the session,
+    /// so the ASWAS completion handler's own `failPendingHandoff(.userCancelled)`
+    /// finds nothing and no-ops. Resuming a continuation twice traps.
+    /// `handleCallback` (:313) uses the same order for the same reason.
+    private func cancelPending() -> Bool {
+        guard pendingHandoff != nil || session != nil else { return false }
+        failPendingHandoff(.userCancelled)
+        // Hold a local strong reference across cancel(): clearing `session`
+        // first must not deallocate the session before it delivers the
+        // completion callback the custom-scheme route depends on.
+        let active = session
+        session = nil
+        active?.cancel()
+        return true
     }
 
     /// Resolve the pending handoff with the URL the RP received via onOpenURL
@@ -381,7 +495,18 @@ public final class LogiAuth: NSObject, ObservableObject {
 
         return try await withCheckedThrowingContinuation { continuation in
             // Custom scheme — ASWAS receives callback URL directly.
-            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { url, error in
+            // Capture the generation by value — an ASWAS reference captured in
+            // its own completion handler would retain a cycle.
+            let generation = handoffGeneration
+            let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { [weak self] url, error in
+                // This route resolves its continuation here rather than through
+                // `pendingHandoff`, so nothing else drops `session`. Release it
+                // now: a stale reference makes `cancel()` report `true` for a
+                // sign-in that already finished. Generation-scoped because this
+                // hop is queued onto the MainActor — by the time it runs, a
+                // second signIn() may already have stored ITS session, and
+                // clearing that one would leave the new flow uncancellable.
+                Task { @MainActor in self?.releaseSession(ifGeneration: generation) }
                 if let url = url {
                     continuation.resume(returning: url)
                 } else if let nserr = error as NSError?,

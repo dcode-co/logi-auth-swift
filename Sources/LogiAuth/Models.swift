@@ -93,6 +93,25 @@ public struct LogiAuthResult: Sendable, Equatable {
     }
 }
 
+/// Which route the in-flight `signIn()` took. Exposed via
+/// `LogiAuth.handoffKind` so the RP can tell the two apart — they need
+/// opposite handling when the user leaves the app.
+///
+/// `.native` means iOS launched the logi app and the SDK is suspended waiting
+/// for the RP to forward the callback. The system gives no signal when the
+/// user comes back without approving, so an RP that detects the return must
+/// call `LogiAuth.cancel()` itself.
+///
+/// `.web` means an ASWebAuthenticationSession is on screen. The system already
+/// reports dismissal as `.userCancelled`, and leaving the app (home, app
+/// switcher) does NOT mean the user abandoned the flow — the sheet is still
+/// there on return. An RP that cancels on foreground-return would kill a live
+/// web sign-in, so it must check this before acting.
+public enum LogiHandoffKind: String, Sendable, Equatable {
+    case native
+    case web
+}
+
 public enum LogiAuthError: LocalizedError, Sendable {
     case notConfigured
     case invalidAuthorizeURL
