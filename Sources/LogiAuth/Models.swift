@@ -112,9 +112,35 @@ public enum LogiHandoffKind: String, Sendable, Equatable {
     case web
 }
 
+/// What `LogiAuth.authorize(startURL:)` hands back: the two values the
+/// authorization server put on the redirect, and nothing else.
+///
+/// Deliberately does NOT carry tokens or the PKCE verifier. In the backend-led
+/// (BFF) flow those live only on the RP's server — the app never sees them, so
+/// a compromised app cannot leak them. The RP forwards `code` and `state` to
+/// its own backend along with the `txn_id` it got from `/start`, and the
+/// backend does the token exchange with `client_secret` + `code_verifier`.
+///
+/// `state` is echoed back for the RP to pass along; it is **not** a credential.
+/// The backend authenticates the completion request by its own transaction
+/// record, not by this value.
+public struct LogiCallback: Sendable, Equatable {
+    public let code: String
+    public let state: String
+
+    public init(code: String, state: String) {
+        self.code = code
+        self.state = state
+    }
+}
+
 public enum LogiAuthError: LocalizedError, Sendable {
     case notConfigured
     case invalidAuthorizeURL
+    /// `authorize(startURL:)` was handed a URL with no `state` query item. The
+    /// RP's backend must put one there — without it the SDK cannot tell the
+    /// callback for this flow apart from a stale or injected one.
+    case missingStateInStartURL
     case userCancelled
     case stateMismatch
     case missingCode
@@ -134,6 +160,10 @@ public enum LogiAuthError: LocalizedError, Sendable {
     case idTokenInvalid(code: String)
     /// Could not fetch the IdP's JWKS for id_token verification.
     case jwksFetchFailed(status: Int)
+    /// `ASWebAuthenticationSession.start()` refused to open — no authorization
+    /// page was ever shown. Usually a missing presentation context or a call
+    /// from a detached/backgrounded scene.
+    case webAuthSessionStartFailed
 
     public var errorDescription: String? {
         switch self {
@@ -141,6 +171,8 @@ public enum LogiAuthError: LocalizedError, Sendable {
             return "LogiAuth.configure(_:) 가 호출되지 않았습니다."
         case .invalidAuthorizeURL:
             return "/oauth/authorize URL을 만들 수 없습니다."
+        case .missingStateInStartURL:
+            return "authorize(startURL:) 에 넘긴 URL에 state 파라미터가 없습니다."
         case .userCancelled:
             return "사용자가 로그인을 취소했습니다."
         case .stateMismatch:
@@ -161,6 +193,8 @@ public enum LogiAuthError: LocalizedError, Sendable {
             return "id_token 이 응답에 없습니다 (scope 에 openid 가 있었나요?)."
         case .idTokenInvalid(let code):
             return "id_token 검증 실패 (\(code))."
+        case .webAuthSessionStartFailed:
+            return "인증 세션을 열 수 없습니다."
         case .jwksFetchFailed(let status):
             return "JWKS 조회 실패 (\(status))."
         }
