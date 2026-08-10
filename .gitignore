@@ -1,0 +1,9 @@
+# SwiftPM 빌드 산출물
+/.build/
+/.swiftpm/
+/Packages/
+
+# macOS / Xcode
+.DS_Store
+xcuserdata/
+DerivedData/
