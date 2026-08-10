@@ -86,6 +86,53 @@ public final class LogiAuth: NSObject, ObservableObject {
         try await shared.signIn(scopes: scopes)
     }
 
+    /// Open an authorization URL that the RP's **backend** built, and hand back
+    /// only `{ code, state }`. The low-level primitive behind the backend-led
+    /// (BFF) flow, for RPs registered as `client_type=confidential`.
+    ///
+    /// `signIn()` cannot serve those RPs: it does the token exchange inside the
+    /// app, which would require shipping `client_secret` in the binary. This
+    /// splits the flow so the secret and the PKCE verifier never leave the RP's
+    /// server.
+    ///
+    ///     // 1. RP backend mints the transaction and the authorize URL
+    ///     let start = try await myBackend.post("/auth/logi/start")
+    ///
+    ///     // 2. SDK opens it and recovers the callback — this call
+    ///     let cb = try await LogiAuth.authorize(startURL: start.authorizeURL)
+    ///
+    ///     // 3. RP backend exchanges the code and issues its own session
+    ///     try await myBackend.post("/auth/logi/complete",
+    ///                              txnId: start.txnId, code: cb.code, state: cb.state)
+    ///
+    /// `startURL` is logi's `/oauth/authorize` URL — **not** the RP backend's
+    /// `/start` endpoint. Calling `/start` is the RP app's job, with its own
+    /// HTTP client; the SDK never talks to the RP backend.
+    ///
+    /// The SDK generates **no** PKCE verifier, state, or nonce here — the
+    /// backend owns all three, and generating them in the app would put the
+    /// verifier back on the device. `state` is read out of `startURL` purely to
+    /// match the callback against this flow.
+    ///
+    /// Same single-flight rule and the same route handling as `signIn()`:
+    /// app-to-app handoff first, ASWebAuthenticationSession as fallback,
+    /// `handle(_:)` / `cancel()` / `handoffKind` all behave identically.
+    /// `configure(_:)` is still required — `redirectURI` is what the SDK
+    /// matches incoming callbacks against.
+    ///
+    /// **Does not survive app termination.** The suspended call lives in
+    /// memory, so if iOS kills the app while the logi app or the browser is
+    /// frontmost, this call dies with it and the returning callback finds
+    /// nothing to resolve. The recovery is a fresh `/start`: the RP backend owns
+    /// the transaction, and abandoning one costs nothing but its TTL.
+    /// `signIn()` has the same limit — treat a sign-in that never returns as one
+    /// to retry, not one to resume. Do not persist the code or state to work
+    /// around this; that would put a live authorization code in app storage.
+    @discardableResult
+    public static func authorize(startURL: URL) async throws -> LogiCallback {
+        try await shared.authorize(startURL: startURL)
+    }
+
     /// Verify the id_token returned by `LogiAuthStorage.refresh()` and promote it
     /// to a verified `LogiSession`. The core connector owns the JWKS cache, so
     /// verification of a refreshed token must go through here — `refresh()` alone
@@ -152,6 +199,79 @@ public final class LogiAuth: NSObject, ObservableObject {
 
     // MARK: - Implementation
 
+    /// Take the single-flight lock shared by `signIn()` and `authorize()` and
+    /// return this flow's generation. Both drive the same `session` /
+    /// `pendingHandoff` / `activeHandoffKind` slots, so they must serialize
+    /// against each other, not just against themselves — two flows over one
+    /// continuation slot strand the first one forever and point `cancel()` at
+    /// the wrong flow.
+    ///
+    /// Serialize on the whole call, not on `pendingHandoff`: that property is
+    /// only populated by the native and HTTPS routes, and the custom-scheme
+    /// route keeps its continuation inside the ASWAS completion handler. A
+    /// guard on it therefore under-enforces `.alreadyInProgress`.
+    private func beginSingleFlight() throws -> UInt64 {
+        guard !signInInFlight else { throw LogiAuthError.alreadyInProgress }
+        signInInFlight = true
+        // Generation-scoped even though flows are serialized: the custom-scheme
+        // cleanup hop is queued onto the MainActor and can land after THIS call
+        // returns and the next one has started.
+        handoffGeneration &+= 1
+        return handoffGeneration
+    }
+
+    /// Release the single-flight lock and clear shared state — on success,
+    /// throw, or cancel. Leaving the route set would make `handoffKind` report
+    /// a finished flow, and an RP gating `cancel()` on it would cancel the NEXT
+    /// one. A late cleanup hop from a previous flow must not clear a newer
+    /// flow's state, hence the generation check.
+    private func endSingleFlight(generation: UInt64) {
+        signInInFlight = false
+        guard handoffGeneration == generation else { return }
+        activeHandoffKind = nil
+        // Custom-scheme ASWAS keeps `session` set past its callback; drop it
+        // here so a later cancel() doesn't mistake a finished flow for a live
+        // one.
+        session = nil
+    }
+
+    /// Instance impl for `authorize(startURL:)`. See the static overload's docs.
+    ///
+    /// The whole point is what this does NOT do: no PKCE generation, no token
+    /// exchange, no id_token verification. Those belong to the RP backend in the
+    /// BFF flow, and doing any of them here would put the verifier or the
+    /// `client_secret` back on the device.
+    private func authorize(startURL: URL) async throws -> LogiCallback {
+        // `state` comes from the backend, embedded in the URL it built. Read it
+        // back so the callback can be matched to this flow — the SDK is not
+        // generating or validating it as a credential, only using it to tell
+        // this flow's callback from a stale or injected one.
+        //
+        // Checked before `config` so a malformed URL is reported as a malformed
+        // URL, and before `beginSingleFlight()` so a rejected argument never
+        // holds the lock — that would block every later flow with
+        // `.alreadyInProgress`.
+        guard
+            let comps = URLComponents(url: startURL, resolvingAgainstBaseURL: true),
+            let state = comps.queryItems?.first(where: { $0.name == "state" })?.value,
+            !state.isEmpty
+        else { throw LogiAuthError.missingStateInStartURL }
+
+        guard let cfg = config else { throw LogiAuthError.notConfigured }
+
+        let generation = try beginSingleFlight()
+        defer { endSingleFlight(generation: generation) }
+
+        let callbackURL = try await acquireCallback(
+            authURL: startURL,
+            state: state,
+            callbackScheme: cfg.redirectURI.scheme
+        )
+        let (code, returnedState) = try parseCallback(callbackURL, expectedState: state)
+
+        return LogiCallback(code: code, state: returnedState)
+    }
+
     private func signIn(scopes: [String]?) async throws -> LogiSession {
         guard let cfg = config else { throw LogiAuthError.notConfigured }
         // Serialize on the whole call, not on `pendingHandoff`. That property
@@ -163,28 +283,8 @@ public final class LogiAuth: NSObject, ObservableObject {
         // pointing cancel() at the wrong flow. `.alreadyInProgress` already
         // documents this intent ("Concurrent flows would race for the same
         // continuation"); the old guard just under-enforced it.
-        guard !signInInFlight else { throw LogiAuthError.alreadyInProgress }
-        signInInFlight = true
-        // Clear shared state on exit — success, throw, or cancel. Leaving the
-        // route set would make `handoffKind` report a finished sign-in, and an
-        // RP gating cancel() on it would cancel the NEXT one.
-        //
-        // Generation-scoped even though sign-ins are now serialized: the
-        // custom-scheme cleanup hop is queued onto the MainActor and can land
-        // after THIS call returns and the next one has started.
-        handoffGeneration &+= 1
-        let generation = handoffGeneration
-        defer {
-            signInInFlight = false
-            // `return` is illegal inside defer — plain `if`, not `guard`.
-            if handoffGeneration == generation {
-                activeHandoffKind = nil
-                // Custom-scheme ASWAS keeps `session` set past its callback;
-                // drop it here so a later cancel() doesn't mistake a finished
-                // sign-in for a live one.
-                session = nil
-            }
-        }
+        let generation = try beginSingleFlight()
+        defer { endSingleFlight(generation: generation) }
 
         let pkce = PKCE.generate()
         let state = UUID().uuidString
@@ -208,8 +308,7 @@ public final class LogiAuth: NSObject, ObservableObject {
         guard let authURL = components.url else { throw LogiAuthError.invalidAuthorizeURL }
 
         let callbackURL = try await acquireCallback(authURL: authURL, state: state, callbackScheme: cfg.redirectURI.scheme)
-        let (code, returnedState) = try parseCallback(callbackURL)
-        guard returnedState == state else { throw LogiAuthError.stateMismatch }
+        let (code, _) = try parseCallback(callbackURL, expectedState: state)
 
         let tokens = try await exchangeCodeForToken(code: code, codeVerifier: pkce.verifier, config: cfg)
 
@@ -489,7 +588,15 @@ public final class LogiAuth: NSObject, ObservableObject {
                 session.presentationContextProvider = self
                 session.prefersEphemeralWebBrowserSession = true
                 self.session = session
-                session.start()
+                // `start()` returning false means no auth page was ever shown.
+                // Nothing else will resolve this flow on the HTTPS route — the
+                // completion handler only fires for a session that started — so
+                // ignoring it left the caller suspended until the 5-minute
+                // timeout, holding the single-flight lock the whole time.
+                // (codex review, 2026-08-10.)
+                if !session.start() {
+                    self.failPendingHandoff(.webAuthSessionStartFailed)
+                }
             }
         }
 
@@ -508,7 +615,20 @@ public final class LogiAuth: NSObject, ObservableObject {
                 // clearing that one would leave the new flow uncancellable.
                 Task { @MainActor in self?.releaseSession(ifGeneration: generation) }
                 if let url = url {
-                    continuation.resume(returning: url)
+                    // ASWAS matches the callback on **scheme only**, so a
+                    // same-scheme URL like `myapp://unexpected?code=…` would be
+                    // accepted here even though `handle(_:)` would have rejected
+                    // it. Apply the same scheme+host+path check both routes are
+                    // supposed to share. (codex review, 2026-08-10.)
+                    Task { @MainActor [weak self] in
+                        guard let self, let cfg = self.config,
+                              self.urlMatchesRedirect(url, redirect: cfg.redirectURI)
+                        else {
+                            continuation.resume(throwing: LogiAuthError.missingCode)
+                            return
+                        }
+                        continuation.resume(returning: url)
+                    }
                 } else if let nserr = error as NSError?,
                           nserr.domain == ASWebAuthenticationSessionError.errorDomain,
                           nserr.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
@@ -520,13 +640,27 @@ public final class LogiAuth: NSObject, ObservableObject {
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = true
             self.session = session
-            session.start()
+            // Same reasoning as the HTTPS route: a session that never started
+            // will never call its completion handler, and this route has no
+            // timeout at all — the continuation would leak forever.
+            if !session.start() {
+                Task { @MainActor in self.releaseSession(ifGeneration: generation) }
+                continuation.resume(throwing: LogiAuthError.webAuthSessionStartFailed)
+            }
         }
     }
 
     // `internal` (not `private`) so the duplicate-key regression test can drive
     // the real parser; not part of the public SDK surface.
-    func parseCallback(_ url: URL) throws -> (code: String, state: String) {
+    /// Parse an OAuth callback, checking `state` **before** anything else.
+    ///
+    /// Order matters. `error` used to be handled first, which meant an
+    /// unsolicited `myapp://cb?error=access_denied&state=wrong` aborted a live
+    /// flow without ever passing the state check — an injected callback could
+    /// cancel someone's sign-in. `state` is the only thing tying a callback to
+    /// this flow, so nothing acts on the callback until it matches.
+    /// (codex review, 2026-08-10.)
+    func parseCallback(_ url: URL, expectedState: String) throws -> (code: String, state: String) {
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: true),
               let items = comps.queryItems
         else { throw LogiAuthError.missingCode }
@@ -541,10 +675,15 @@ public final class LogiAuth: NSObject, ObservableObject {
             },
             uniquingKeysWith: { first, _ in first }
         )
+        // State first — see the doc comment. A callback that isn't ours must not
+        // be able to fail, cancel, or complete this flow.
+        guard let state = dict["state"], state == expectedState else {
+            throw LogiAuthError.stateMismatch
+        }
         if let err = dict["error"] {
             throw LogiAuthError.authorizationServerError(code: err, description: dict["error_description"])
         }
-        guard let code = dict["code"], let state = dict["state"] else {
+        guard let code = dict["code"] else {
             throw LogiAuthError.missingCode
         }
         return (code, state)

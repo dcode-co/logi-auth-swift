@@ -98,6 +98,78 @@ final class LogiAuthTests: XCTestCase {
         XCTAssertFalse(LogiAuth.shared.signInInFlight, "no sign-in running — the guard must be open")
     }
 
+    // MARK: - authorize(startURL:) — backend-led (BFF) flow
+
+    /// `authorize(startURL:)` must refuse a URL with no `state`. The backend
+    /// owns state in this flow, so its absence means the URL did not come from
+    /// a `/start` call — and without it the SDK cannot tell this flow's
+    /// callback from a stale or injected one.
+    @MainActor
+    func testAuthorizeRejectsStartURLWithoutState() async {
+        let noState = URL(string: "https://api.1pass.dev/oauth/authorize?client_id=rp_test&code_challenge=abc")!
+        do {
+            _ = try await LogiAuth.authorize(startURL: noState)
+            XCTFail("a startURL without state must not be opened")
+        } catch let error as LogiAuthError {
+            guard case .missingStateInStartURL = error else {
+                return XCTFail("expected .missingStateInStartURL, got \(error)")
+            }
+        } catch {
+            XCTFail("unexpected error type: \(error)")
+        }
+    }
+
+    /// An empty `state=` is the same failure as a missing one — a blank value
+    /// would match any callback.
+    @MainActor
+    func testAuthorizeRejectsEmptyState() async {
+        let blank = URL(string: "https://api.1pass.dev/oauth/authorize?client_id=rp_test&state=")!
+        do {
+            _ = try await LogiAuth.authorize(startURL: blank)
+            XCTFail("a blank state must not be accepted")
+        } catch let error as LogiAuthError {
+            guard case .missingStateInStartURL = error else {
+                return XCTFail("expected .missingStateInStartURL, got \(error)")
+            }
+        } catch {
+            XCTFail("unexpected error type: \(error)")
+        }
+    }
+
+    /// The validation above must run BEFORE the single-flight lock is taken.
+    /// Otherwise a malformed `startURL` would leave `signInInFlight` set and
+    /// every later sign-in would throw `.alreadyInProgress`.
+    @MainActor
+    func testAuthorizeValidationDoesNotLeakTheSingleFlightLock() async {
+        _ = try? await LogiAuth.authorize(
+            startURL: URL(string: "https://api.1pass.dev/oauth/authorize?client_id=rp_test")!
+        )
+        XCTAssertFalse(
+            LogiAuth.shared.signInInFlight,
+            "a rejected startURL must not hold the lock — later sign-ins would be blocked forever"
+        )
+        XCTAssertNil(LogiAuth.handoffKind)
+    }
+
+    /// `LogiCallback` carries the callback pair and nothing else. Tokens and
+    /// the PKCE verifier stay on the RP backend in this flow; if either ever
+    /// appears on this type, the app is holding a secret it must not have.
+    func testLogiCallbackCarriesOnlyCodeAndState() {
+        let cb = LogiCallback(code: "the-code", state: "the-state")
+        XCTAssertEqual(cb.code, "the-code")
+        XCTAssertEqual(cb.state, "the-state")
+
+        let mirrored = Mirror(reflecting: cb).children.compactMap(\.label).sorted()
+        XCTAssertEqual(
+            mirrored, ["code", "state"],
+            "LogiCallback must not grow token or verifier fields — they belong to the backend"
+        )
+    }
+
+    func testMissingStateInStartURLHasDescription() {
+        XCTAssertNotNil(LogiAuthError.missingStateInStartURL.errorDescription)
+    }
+
     /// Regression (S1): a callback URL with duplicate query keys must NOT crash.
     /// The old `Dictionary(uniqueKeysWithValues:)` trapped on a repeated key;
     /// we now take first-wins. A malformed/hostile callback should degrade
@@ -105,8 +177,52 @@ final class LogiAuthTests: XCTestCase {
     @MainActor
     func testParseCallbackDuplicateKeysFirstWinsNoCrash() throws {
         let url = URL(string: "myapp://cb?code=first&code=second&state=s1&state=s2")!
-        let (code, state) = try LogiAuth.shared.parseCallback(url)
+        let (code, state) = try LogiAuth.shared.parseCallback(url, expectedState: "s1")
         XCTAssertEqual(code, "first", "duplicate code must resolve first-wins")
         XCTAssertEqual(state, "s1", "duplicate state must resolve first-wins")
+    }
+
+    /// Regression: an unsolicited error callback must not be able to abort a
+    /// live flow. `error` used to be handled before `state` was compared, so
+    /// `myapp://cb?error=access_denied&state=wrong` cancelled someone else's
+    /// sign-in. State is the only thing tying a callback to a flow, so it is
+    /// checked first now. (codex review, 2026-08-10.)
+    @MainActor
+    func testParseCallbackChecksStateBeforeServerError() {
+        let injected = URL(string: "myapp://cb?error=access_denied&state=wrong")!
+        XCTAssertThrowsError(try LogiAuth.shared.parseCallback(injected, expectedState: "mine")) { error in
+            guard case LogiAuthError.stateMismatch = error else {
+                return XCTFail("expected .stateMismatch, got \(error)")
+            }
+        }
+    }
+
+    /// A genuine server error on a matching state still surfaces as such — the
+    /// reordering above must not swallow real `access_denied` responses.
+    @MainActor
+    func testParseCallbackSurfacesServerErrorWhenStateMatches() {
+        let denied = URL(string: "myapp://cb?error=access_denied&error_description=nope&state=mine")!
+        XCTAssertThrowsError(try LogiAuth.shared.parseCallback(denied, expectedState: "mine")) { error in
+            guard case LogiAuthError.authorizationServerError(let code, let desc) = error else {
+                return XCTFail("expected .authorizationServerError, got \(error)")
+            }
+            XCTAssertEqual(code, "access_denied")
+            XCTAssertEqual(desc, "nope")
+        }
+    }
+
+    /// A callback with no state at all is a mismatch, not a missing code.
+    @MainActor
+    func testParseCallbackRejectsCallbackWithoutState() {
+        let noState = URL(string: "myapp://cb?code=abc")!
+        XCTAssertThrowsError(try LogiAuth.shared.parseCallback(noState, expectedState: "mine")) { error in
+            guard case LogiAuthError.stateMismatch = error else {
+                return XCTFail("expected .stateMismatch, got \(error)")
+            }
+        }
+    }
+
+    func testWebAuthSessionStartFailedHasDescription() {
+        XCTAssertNotNil(LogiAuthError.webAuthSessionStartFailed.errorDescription)
     }
 }
