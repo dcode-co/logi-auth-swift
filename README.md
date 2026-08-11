@@ -66,6 +66,15 @@ struct MyApp: App {
 }
 ```
 
+> ⚠️ **configure 는 반드시 앱 시작 시(App.init) 호출한다.** 로그인 버튼 탭
+> 핸들러에서 처음 configure 하는 패턴은 금지 — 콜백만으로 콜드 스타트한
+> 프로세스(app-to-app 복귀·프로세스 재생성)는 configure 없이 `handle(_:)` 에
+> 도달해 `.notConfigured` 로 죽는다. 또한 구버전(≤v1.2.x)은 configure 가
+> `Task { @MainActor }` 로 **비동기 반영**이라, 같은 MainActor 틱에서
+> configure → signIn 이 이어지면 첫 탭만 `.notConfigured` 로 실패하고 두 번째
+> 탭부터 성공하는 race 가 있었다 (ainote 실기 실측 2026-08-12 — 현재는 동기
+> 반영으로 수정됨). 어느 버전에서든 App.init 1회 호출이 정답이다.
+
 ### 2. 로그인 버튼
 ```swift
 struct SignInButton: View {
@@ -130,7 +139,7 @@ applinks:api.1pass.dev
 ### `LogiAuth` (core connector — 인증만)
 | Method | Returns | Description |
 |---|---|---|
-| `LogiAuth.configure(_:)` | `Void` | 앱 시작 시 1회 호출 |
+| `LogiAuth.configure(_:)` | `Void` | 앱 시작 시 1회 호출 · **동기 반영** (리턴 즉시 `signIn()`/`handle(_:)` 이 config 를 본다) |
 | `LogiAuth.signIn(scopes:)` | `async throws -> LogiSession` | 로그인 (id_token RS256 서명검증 내장) |
 | `LogiAuth.verify(_:)` | `async throws -> LogiSession` | `refresh()` 결과의 id_token 을 검증해 세션으로 승격 · **v1.1.0** |
 | `LogiAuth.handle(_:)` | `Bool` | app-to-app callback 처리 (onOpenURL 에서 호출) |

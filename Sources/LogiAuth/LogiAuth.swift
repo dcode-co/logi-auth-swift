@@ -60,8 +60,17 @@ public final class LogiAuth: NSObject, ObservableObject {
     private override init() { super.init() }
 
     /// Call once at app start (e.g. in @main App's init).
+    ///
+    /// Applies **synchronously** — the config is visible to `signIn()` /
+    /// `handle(_:)` the moment this returns. Earlier versions deferred the
+    /// assignment via `Task { @MainActor }`, so an RP that called
+    /// configure → signIn in the same MainActor tick (cold-start first tap)
+    /// hit `.notConfigured` on the first attempt and succeeded on the second
+    /// (ainote 실기 실측 2026-08-12). This static is already MainActor-isolated
+    /// (the class is `@MainActor`), so direct assignment is both legal and the
+    /// only ordering-safe option.
     public static func configure(_ config: LogiAuthConfig) {
-        Task { @MainActor in shared.config = config }
+        shared.config = config
     }
 
     /// Drives the OAuth Authorization Code + PKCE flow with app-to-app handoff
