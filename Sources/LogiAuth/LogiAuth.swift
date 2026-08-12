@@ -67,16 +67,23 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// Drives the OAuth Authorization Code + PKCE flow with app-to-app handoff
     /// preferred. Two-stage:
     ///
-    ///   1. `UIApplication.open(authorizeURL, options: [.universalLinksOnly: true])`.
+    ///   1. `UIApplication.open(authorizeURL, options: [.universalLinksOnly: true])`
+    ///      against the **handoff host** (`open.1pass.dev` for the stock
+    ///      production issuer — see `LogiAuthConfig.nativeAuthorizeHost`).
     ///      If the logi app is installed and its associated-domain entitlement
-    ///      claims `api.1pass.dev`, iOS launches it directly (no browser).
+    ///      claims that host, iOS launches it directly (no browser).
     ///      The logi app processes consent natively, then opens the RP's
     ///      `redirect_uri` with `?code=…&state=…`. The RP must call
     ///      `LogiAuth.handle(_:)` from its `onOpenURL` /
     ///      `onContinueUserActivity` handler to forward that URL into the SDK.
     ///   2. If the system reports no associated app (universalLinksOnly returns
     ///      false), fall back to `ASWebAuthenticationSession` loading the web
-    ///      `/oauth/authorize` page; the callback closes back into the SDK.
+    ///      `/oauth/authorize` page **on the issuer host**, which carries no
+    ///      such claim; the callback closes back into the SDK.
+    ///
+    /// The two legs deliberately address different hosts with the same query —
+    /// see `makeAuthorizeURLs`. Everything after the callback (token exchange,
+    /// JWKS, `iss`) stays bound to `issuer`.
     ///
     /// Why try app-to-app first? Apple suppresses Universal Link handoff
     /// inside ASWebAuthenticationSession, so the only way to reach the native
@@ -262,8 +269,22 @@ public final class LogiAuth: NSObject, ObservableObject {
         let generation = try beginSingleFlight()
         defer { endSingleFlight(generation: generation) }
 
+        // Deliberately NOT host-split (v1.3.0). `signIn()` builds its own
+        // authorize URL, so the SDK can address the two legs separately; here
+        // the URL arrives whole from the RP's backend, which is the party that
+        // decided the host. Splitting it would mean the SDK overriding a
+        // backend's deployment choice from a client-side default — a policy
+        // call this SDK is not in a position to make, and one that would break
+        // any backend not on the stock production hosts. Both legs therefore
+        // keep using `startURL` exactly as given.
+        //
+        // Left open on purpose rather than forgotten: the flow is unreleased
+        // and has no consumers yet, so nothing is currently affected. When a
+        // BFF RP does ship, the fix belongs on the backend (emit the handoff
+        // host in the URL it mints) or in an explicit opt-in here.
         let callbackURL = try await acquireCallback(
-            authURL: startURL,
+            nativeURL: startURL,
+            webURL: startURL,
             state: state,
             callbackScheme: cfg.redirectURI.scheme
         )
@@ -293,21 +314,20 @@ public final class LogiAuth: NSObject, ObservableObject {
         // through authorize → grant → id_token (id_token_issuer.rb).
         let nonce = Self.randomURLToken()
 
-        var components = URLComponents(url: cfg.issuer, resolvingAgainstBaseURL: false)!
-        components.path = "/oauth/authorize"
-        components.queryItems = [
-            .init(name: "response_type", value: "code"),
-            .init(name: "client_id", value: cfg.clientId),
-            .init(name: "redirect_uri", value: cfg.redirectURI.absoluteString),
-            .init(name: "scope", value: (scopes ?? cfg.scopes).joined(separator: " ")),
-            .init(name: "state", value: state),
-            .init(name: "nonce", value: nonce),
-            .init(name: "code_challenge", value: pkce.challenge),
-            .init(name: "code_challenge_method", value: "S256")
-        ]
-        guard let authURL = components.url else { throw LogiAuthError.invalidAuthorizeURL }
+        let authorizeURLs = try Self.makeAuthorizeURLs(
+            config: cfg,
+            scopes: scopes,
+            state: state,
+            nonce: nonce,
+            codeChallenge: pkce.challenge
+        )
 
-        let callbackURL = try await acquireCallback(authURL: authURL, state: state, callbackScheme: cfg.redirectURI.scheme)
+        let callbackURL = try await acquireCallback(
+            nativeURL: authorizeURLs.native,
+            webURL: authorizeURLs.web,
+            state: state,
+            callbackScheme: cfg.redirectURI.scheme
+        )
         let (code, _) = try parseCallback(callbackURL, expectedState: state)
 
         let tokens = try await exchangeCodeForToken(code: code, codeVerifier: pkce.verifier, config: cfg)
@@ -405,12 +425,7 @@ public final class LogiAuth: NSObject, ObservableObject {
            Date().timeIntervalSince(cached.fetchedAt) < Self.jwksTTL {
             return (cached.jwks, true)
         }
-        let base = issuer.absoluteString.hasSuffix("/")
-            ? String(issuer.absoluteString.dropLast())
-            : issuer.absoluteString
-        guard let url = URL(string: base + "/.well-known/jwks.json") else {
-            throw LogiAuthError.jwksFetchFailed(status: 0)
-        }
+        let url = try Self.jwksEndpoint(issuer: issuer)
         let (data, response) = try await URLSession.shared.data(from: url)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
@@ -437,17 +452,107 @@ public final class LogiAuth: NSObject, ObservableObject {
             .replacingOccurrences(of: "=", with: "")
     }
 
+    // MARK: - Authorize URL construction
+
+    /// Build the two `/oauth/authorize` URLs one `signIn()` needs: **the same
+    /// authorization request addressed to two different hosts.**
+    ///
+    /// - `native` — the app-to-app handoff target, on
+    ///   `config.resolvedNativeAuthorizeHost`. That host keeps the
+    ///   `/oauth/authorize*` Universal Link claim so `UIApplication.open(...,
+    ///   .universalLinksOnly: true)` can launch the logi app.
+    /// - `web` — the ASWebAuthenticationSession fallback, on `config.issuer`'s
+    ///   host and nothing else. 🔴 This one must stay on the **unclaimed** host.
+    ///   Pointing it at the claimed host is what breaks browser sign-in: the
+    ///   claim intercepts the page load, drops the user into the logi app
+    ///   mid-flow, and returns the callback to the wrong browser. For a user
+    ///   without the app installed — the only user who ever reaches this leg —
+    ///   it is worse still, because that leg is their whole sign-in.
+    ///
+    /// Both URLs come off **one** `URLComponents` value with only `host`
+    /// swapped, so the query cannot drift between the two legs: same
+    /// `state`, `nonce`, and `code_challenge`, in the same order. A divergent
+    /// query would make the fallback a different authorization request than the
+    /// one the caller is tracking.
+    ///
+    /// `nonisolated` and static because it is pure — the URL split is the part
+    /// the tests need to pin, and it must be reachable without a live sign-in.
+    nonisolated static func makeAuthorizeURLs(
+        config: LogiAuthConfig,
+        scopes: [String]?,
+        state: String,
+        nonce: String,
+        codeChallenge: String
+    ) throws -> (native: URL, web: URL) {
+        guard var components = URLComponents(url: config.issuer, resolvingAgainstBaseURL: false) else {
+            throw LogiAuthError.invalidAuthorizeURL
+        }
+        components.path = "/oauth/authorize"
+        components.queryItems = [
+            .init(name: "response_type", value: "code"),
+            .init(name: "client_id", value: config.clientId),
+            .init(name: "redirect_uri", value: config.redirectURI.absoluteString),
+            .init(name: "scope", value: (scopes ?? config.scopes).joined(separator: " ")),
+            .init(name: "state", value: state),
+            .init(name: "nonce", value: nonce),
+            .init(name: "code_challenge", value: codeChallenge),
+            .init(name: "code_challenge_method", value: "S256")
+        ]
+        // Web first, off the untouched issuer host — so the fallback URL cannot
+        // pick up a host swap by accident.
+        guard let webURL = components.url else { throw LogiAuthError.invalidAuthorizeURL }
+
+        var nativeComponents = components
+        // nil (or an issuer with no host) means "no derivation possible" — leave
+        // the handoff on the issuer host, i.e. the pre-1.3.0 single-host
+        // behaviour. See `LogiAuthConfig.resolvedNativeAuthorizeHost`.
+        if let nativeHost = config.resolvedNativeAuthorizeHost, !nativeHost.isEmpty {
+            nativeComponents.host = nativeHost
+        }
+        guard let nativeURL = nativeComponents.url else { throw LogiAuthError.invalidAuthorizeURL }
+
+        return (native: nativeURL, web: webURL)
+    }
+
+    /// The token endpoint. Bound to `issuer` — **not** to the native handoff
+    /// host. `resolvedNativeAuthorizeHost` moves the authorize handoff only;
+    /// the authorization code is redeemed at the issuer, which is also what the
+    /// id_token's `iss` is checked against.
+    ///
+    /// `internal` so a test can assert that binding against the real code path
+    /// instead of re-deriving the URL from `issuer` itself.
+    nonisolated static func tokenEndpoint(issuer: URL) -> URL {
+        issuer.appendingPathComponent("oauth/token")
+    }
+
+    /// The JWKS endpoint. Bound to `issuer` for the same reason as
+    /// `tokenEndpoint` — the signing keys belong to the issuer.
+    nonisolated static func jwksEndpoint(issuer: URL) throws -> URL {
+        let base = issuer.absoluteString.hasSuffix("/")
+            ? String(issuer.absoluteString.dropLast())
+            : issuer.absoluteString
+        guard let url = URL(string: base + "/.well-known/jwks.json") else {
+            throw LogiAuthError.jwksFetchFailed(status: 0)
+        }
+        return url
+    }
+
     /// Try app-to-app handoff first (preferred — works even when the RP would
     /// otherwise wrap the IdP in ASWebAuthenticationSession). On failure
     /// (`universalLinksOnly` returned false → no associated app installed),
     /// fall back to ASWAS loading the web /oauth/authorize page.
-    private func acquireCallback(authURL: URL, state: String, callbackScheme: String?) async throws -> URL {
-        if await tryNativeHandoff(authURL: authURL) {
+    ///
+    /// The two legs take **different URLs** since v1.3.0: `nativeURL` on the
+    /// claimed handoff host, `webURL` on the unclaimed issuer host. Passing one
+    /// URL to both is exactly the regression the split exists to prevent — see
+    /// `makeAuthorizeURLs`.
+    private func acquireCallback(nativeURL: URL, webURL: URL, state: String, callbackScheme: String?) async throws -> URL {
+        if await tryNativeHandoff(authURL: nativeURL) {
             activeHandoffKind = .native
             return try await waitForExternalCallback(state: state)
         }
         activeHandoffKind = .web
-        return try await beginWebAuthSession(authURL: authURL, callbackScheme: callbackScheme, state: state)
+        return try await beginWebAuthSession(authURL: webURL, callbackScheme: callbackScheme, state: state)
     }
 
     private func tryNativeHandoff(authURL: URL) async -> Bool {
@@ -690,7 +795,7 @@ public final class LogiAuth: NSObject, ObservableObject {
     }
 
     private func exchangeCodeForToken(code: String, codeVerifier: String, config: LogiAuthConfig) async throws -> LogiAuthResult {
-        var request = URLRequest(url: config.issuer.appendingPathComponent("oauth/token"))
+        var request = URLRequest(url: Self.tokenEndpoint(issuer: config.issuer))
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")

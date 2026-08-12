@@ -204,7 +204,21 @@ app-to-app 갈래는 사용자가 logi 앱에서 **승인하지 않고 돌아와
 
 ## Versioning
 
-- `v1.2.x` — current stable. iOS 17+, macOS 14+
+전체 이력은 [CHANGELOG.md](CHANGELOG.md).
+
+- `v1.3.x` — authorize 핸드오프 호스트 분리. iOS 17+
+  - **v1.3.0** — `signIn()` 의 네이티브 app-to-app 갈래가 `open.1pass.dev` 로,
+    웹 폴백은 `issuer` 호스트(`api.1pass.dev`)로 간다. 쿼리는 동일하고 host 만 다르다.
+    `api.1pass.dev` 의 `/oauth/authorize*` claim 이 웹 RP 의 브라우저 로그인까지
+    가로채던 문제를 푼다.
+    설정: `LogiAuthConfig.nativeAuthorizeHost`(기본 `nil`) —
+    stock 프로덕션 issuer 일 때만 자동 파생하고, 스테이징·자체호스팅은 두 갈래 모두
+    issuer 호스트에 남는다.
+    🔴 `issuer` 는 그대로다 — 토큰 교환·JWKS·`iss` 검증이 같은 값을 쓴다.
+    `authorize(startURL:)`(백엔드 주도 BFF 흐름)도 이 버전에 실리며, **호스트 분리
+    대상은 아니다**(호스트를 백엔드가 정하는 구조).
+    심볼 시그니처 불변 — 추가만 한다.
+- `v1.2.x` — iOS 17+, macOS 14+
   - **v1.2.0** — `LogiAuth.cancel()` + `LogiAuth.handoffKind`. app-to-app 갈래에서
     승인 없이 돌아온 사용자를 RP 가 끊을 수 있다(이전에는 5분 타임아웃까지 대기).
     심볼 시그니처 불변 — 추가만 한다.

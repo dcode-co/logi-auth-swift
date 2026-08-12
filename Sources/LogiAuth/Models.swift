@@ -15,19 +15,62 @@ public struct LogiAuthConfig: Sendable {
     /// against production tokens. Only override for a non-standard deployment.
     public let tokenIssuer: String
     public let scopes: [String]
+    /// Host that receives the **native app-to-app handoff** leg of `signIn()`,
+    /// and only that leg. `nil` (the default) means derive it — see
+    /// `resolvedNativeAuthorizeHost`.
+    ///
+    /// This exists because the two legs of `signIn()` need different hosts.
+    /// `api.1pass.dev` claims `/oauth/authorize*` in its AASA so the logi app
+    /// can be launched app-to-app — but that claim also intercepts the
+    /// **browser** OAuth flow of web RPs, dropping the user into the logi app
+    /// mid-login and returning the callback to the wrong browser. Splitting the
+    /// hosts keeps the claim (native leg → `open.1pass.dev`) while leaving the
+    /// web fallback on an unclaimed host (`api.1pass.dev`).
+    ///
+    /// 🔴 This is NOT `issuer`. `issuer` still addresses token exchange, JWKS,
+    /// revoke, and the `LogiAuthStorage` endpoints; moving it would break the
+    /// token exchange and every sign-in with it. Only the authorize handoff URL
+    /// is affected.
+    public let nativeAuthorizeHost: String?
+    /// The stock production issuer. Also the discriminator for automatic
+    /// handoff-host derivation — see `resolvedNativeAuthorizeHost`.
+    public static let defaultIssuer = URL(string: "https://api.1pass.dev")!
+    /// The bouncer host that keeps the `/oauth/authorize*` Universal Link claim.
+    public static let defaultNativeAuthorizeHost = "open.1pass.dev"
+
+    /// The host the native handoff URL is actually built with — the single
+    /// definition both `signIn()` and its tests read.
+    ///
+    /// - An explicit non-empty `nativeAuthorizeHost` always wins.
+    /// - Otherwise, the split applies **only to the stock production issuer**.
+    ///   A staging or self-hosted deployment gets `issuer.host` back, i.e. the
+    ///   pre-1.3.0 behaviour of one host for both legs.
+    ///
+    /// Deriving unconditionally would be wrong: `open.1pass.dev` is a
+    /// production host, and pointing a staging RP's handoff at it would send
+    /// the authorize request to the wrong deployment. The SDK cannot know which
+    /// host a custom deployment claims, so it declines to guess and asks the RP
+    /// to say so with `nativeAuthorizeHost`.
+    public var resolvedNativeAuthorizeHost: String? {
+        if let explicit = nativeAuthorizeHost, !explicit.isEmpty { return explicit }
+        guard issuer.host?.lowercased() == Self.defaultIssuer.host else { return issuer.host }
+        return Self.defaultNativeAuthorizeHost
+    }
 
     public init(
         clientId: String,
         redirectURI: URL,
-        issuer: URL = URL(string: "https://api.1pass.dev")!,
+        issuer: URL = LogiAuthConfig.defaultIssuer,
         tokenIssuer: String = "https://api.1pass.dev",
-        scopes: [String] = ["openid", "profile:basic", "email"]
+        scopes: [String] = ["openid", "profile:basic", "email"],
+        nativeAuthorizeHost: String? = nil
     ) {
         self.clientId = clientId
         self.redirectURI = redirectURI
         self.issuer = issuer
         self.tokenIssuer = tokenIssuer
         self.scopes = scopes
+        self.nativeAuthorizeHost = nativeAuthorizeHost
     }
 }
 
