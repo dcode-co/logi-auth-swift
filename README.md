@@ -67,13 +67,16 @@ struct MyApp: App {
 ```
 
 > ⚠️ **configure 는 반드시 앱 시작 시(App.init) 호출한다.** 로그인 버튼 탭
-> 핸들러에서 처음 configure 하는 패턴은 금지 — 콜백만으로 콜드 스타트한
-> 프로세스(app-to-app 복귀·프로세스 재생성)는 configure 없이 `handle(_:)` 에
-> 도달해 `.notConfigured` 로 죽는다. 또한 구버전(≤v1.2.x)은 configure 가
-> `Task { @MainActor }` 로 **비동기 반영**이라, 같은 MainActor 틱에서
-> configure → signIn 이 이어지면 첫 탭만 `.notConfigured` 로 실패하고 두 번째
-> 탭부터 성공하는 race 가 있었다 (ainote 실기 실측 2026-08-12 — 현재는 동기
-> 반영으로 수정됨). 어느 버전에서든 App.init 1회 호출이 정답이다.
+> 핸들러에서 처음 configure 하는 패턴은 금지 — 두 경로로 깨진다.
+> ① 구버전(≤v1.2.x)은 configure 가 `Task { @MainActor }` 로 **비동기 반영**이라,
+> 같은 MainActor 틱에서 configure → signIn 이 이어지면 첫 탭만 `.notConfigured`
+> 로 실패하고 두 번째 탭부터 성공하는 race 가 있었다 (ainote 실기 실측
+> 2026-08-12 — 현재는 동기 반영으로 수정됨).
+> ② 콜백만으로 콜드 스타트한 프로세스(app-to-app 복귀·프로세스 재생성)는 탭
+> 없이 `handle(_:)` 에 도달하는데, configure 가 없으면 SDK 가 redirect_uri
+> 매칭을 못 해 콜백을 **에러 없이 조용히 무시**하고 RP 의 다른 URL 핸들러로
+> 흘러갈 수 있다 (진행 중이던 sign-in 은 프로세스와 함께 소멸 — 정답은 재시도).
+> 어느 버전에서든 App.init 1회 호출이 정답이다.
 
 ### 2. 로그인 버튼
 ```swift
