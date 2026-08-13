@@ -45,9 +45,12 @@ final class LogiAuthTests: XCTestCase {
     /// missingCode thrown to the user as a fake "OAuth failed").
     @MainActor
     func testHandleWithoutConfigDoesNotConsume() {
-        // With no LogiAuth.configure() called, handleCallback hits the
-        // `guard let cfg = config` branch and returns false even if a
-        // handoff were pending. Asserts the safety contract.
+        // With nothing in flight, handleCallback returns false at the
+        // `pendingHandoff` guard, which sits *ahead* of the config guard —
+        // so this assertion holds whether or not a config is present. The
+        // `guard let cfg = config` branch it documents is only reached once a
+        // handoff is pending; keep that in mind before treating this test as
+        // coverage of the unconfigured path.
         let consumed = LogiAuth.handle(URL(string: "https://other.example.com/foo?code=x&state=y")!)
         XCTAssertFalse(consumed, "URL must not be consumed when no config is set")
     }

@@ -73,6 +73,22 @@ public final class LogiAuth: NSObject, ObservableObject {
         shared.config = config
     }
 
+    /// Drop the configuration again. `internal` (not public) so it never
+    /// reaches the SDK surface — same rationale as `signInInFlight` above.
+    ///
+    /// `shared` is process-global and a test that calls `configure(_:)` would
+    /// otherwise leave every later test in the process running against a
+    /// configured SDK, turning "no configure() was called" preconditions into
+    /// silent order dependencies. Call this from `tearDown` so a test class
+    /// does not carry its configuration out with it.
+    ///
+    /// Deliberately minimal: only `config` is cleared, because that is the
+    /// only global the current tests mutate. Extend it if a future test starts
+    /// leaving `pendingHandoff` / `session` / the JWKS cache behind.
+    static func resetForTesting() {
+        shared.config = nil
+    }
+
     /// Drives the OAuth Authorization Code + PKCE flow with app-to-app handoff
     /// preferred. Two-stage:
     ///
