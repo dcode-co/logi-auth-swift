@@ -4,6 +4,14 @@ Semantic versioning. 태그 패턴 `vX.Y.Z`.
 
 ---
 
+## v1.4.1
+
+- `LogiAuthConfig.prefersEphemeralWebSession: Bool = true` — ASWAS 웹 폴백의 쿠키 정책을
+  RP 가 정한다. 기본은 기존과 같은 ephemeral(비공유). 웹 폴백이 로그인 전부인 사용자
+  (logi 앱 미설치)가 반복 로그인하는 RP 는 `false` 로 Safari 세션 쿠키를 재사용한다 —
+  SDK 이전 meetnote 코디네이터가 의도적으로 켜 두던 동작의 복원 (codex P2).
+  additive — 기존 호출부 무변경.
+
 ## v1.4.0
 
 ### BFF `authorize()` 에도 호스트 분리 — 단, 명시적으로

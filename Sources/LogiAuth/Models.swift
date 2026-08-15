@@ -32,6 +32,14 @@ public struct LogiAuthConfig: Sendable {
     /// token exchange and every sign-in with it. Only the authorize handoff URL
     /// is affected.
     public let nativeAuthorizeHost: String?
+    /// Whether the ASWebAuthenticationSession web fallback runs ephemeral
+    /// (no shared Safari cookies). Default `true` — the fallback leaves no
+    /// session behind, which is the privacy-leaning default every existing RP
+    /// shipped with. RPs whose web-fallback users sign in repeatedly (no logi
+    /// app installed — that leg is their whole login) can pass `false` to
+    /// reuse Safari's session cookies, matching a pre-SDK coordinator that
+    /// deliberately shared them (meetnote, EasyBracketKit lineage).
+    public let prefersEphemeralWebSession: Bool
     /// The stock production issuer. Also the discriminator for automatic
     /// handoff-host derivation — see `resolvedNativeAuthorizeHost`.
     public static let defaultIssuer = URL(string: "https://api.1pass.dev")!
@@ -63,7 +71,8 @@ public struct LogiAuthConfig: Sendable {
         issuer: URL = LogiAuthConfig.defaultIssuer,
         tokenIssuer: String = "https://api.1pass.dev",
         scopes: [String] = ["openid", "profile:basic", "email"],
-        nativeAuthorizeHost: String? = nil
+        nativeAuthorizeHost: String? = nil,
+        prefersEphemeralWebSession: Bool = true
     ) {
         self.clientId = clientId
         self.redirectURI = redirectURI
@@ -71,6 +80,7 @@ public struct LogiAuthConfig: Sendable {
         self.tokenIssuer = tokenIssuer
         self.scopes = scopes
         self.nativeAuthorizeHost = nativeAuthorizeHost
+        self.prefersEphemeralWebSession = prefersEphemeralWebSession
     }
 }
 

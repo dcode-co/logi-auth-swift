@@ -107,6 +107,20 @@ final class AuthorizeStartURLValidationTests: XCTestCase {
         ) { XCTAssertEqual($0 as? LogiAuthError, .startURLPairMismatch) }
     }
 
+    /// v1.4.1 — the web fallback's cookie policy is config-driven. Default
+    /// stays ephemeral (every pre-1.4.1 RP shipped that way); `false` opts into
+    /// shared Safari cookies for RPs whose fallback is the whole login.
+    func testPrefersEphemeralWebSessionDefaultsTrueAndIsOverridable() {
+        let stock = LogiAuthConfig(
+            clientId: "logi_x", redirectURI: URL(string: "x://cb")!)
+        XCTAssertTrue(stock.prefersEphemeralWebSession)
+
+        let shared = LogiAuthConfig(
+            clientId: "logi_x", redirectURI: URL(string: "x://cb")!,
+            prefersEphemeralWebSession: false)
+        XCTAssertFalse(shared.prefersEphemeralWebSession)
+    }
+
     /// Only the host may differ — that is the entire point of the pair.
     func testDifferentPortThrowsPairMismatch() {
         let web = url("state=S1")

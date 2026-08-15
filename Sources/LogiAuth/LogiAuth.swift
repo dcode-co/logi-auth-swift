@@ -780,7 +780,11 @@ public final class LogiAuth: NSObject, ObservableObject {
                     Task { @MainActor in self?.failPendingHandoff(.userCancelled) }
                 }
                 session.presentationContextProvider = self
-                session.prefersEphemeralWebBrowserSession = true
+                // Config-driven (v1.4.1): default stays ephemeral; RPs whose web
+                // fallback is the whole login for app-less users opt into
+                // shared Safari cookies. `config` is non-nil on every path that
+                // reaches an ASWAS launch, so the fallback value never applies.
+                session.prefersEphemeralWebBrowserSession = self.config?.prefersEphemeralWebSession ?? true
                 self.session = session
                 // `start()` returning false means no auth page was ever shown.
                 // Nothing else will resolve this flow on the HTTPS route — the
@@ -832,7 +836,11 @@ public final class LogiAuth: NSObject, ObservableObject {
                 }
             }
             session.presentationContextProvider = self
-            session.prefersEphemeralWebBrowserSession = true
+            // Config-driven (v1.4.1): default stays ephemeral; RPs whose web
+                // fallback is the whole login for app-less users opt into
+                // shared Safari cookies. `config` is non-nil on every path that
+                // reaches an ASWAS launch, so the fallback value never applies.
+                session.prefersEphemeralWebBrowserSession = self.config?.prefersEphemeralWebSession ?? true
             self.session = session
             // Same reasoning as the HTTPS route: a session that never started
             // will never call its completion handler, and this route has no
