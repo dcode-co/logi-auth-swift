@@ -4,6 +4,34 @@ Semantic versioning. 태그 패턴 `vX.Y.Z`.
 
 ---
 
+## v1.4.0
+
+### BFF `authorize()` 에도 호스트 분리 — 단, 명시적으로
+
+`authorize(startURL:nativeStartURL:)` — 네이티브 앱-투-앱 first-try 갈래만 `nativeStartURL` 로,
+웹 폴백은 `startURL` 그대로. v1.3.0 이 signIn() 에 자동 파생으로 넣은 분리를 BFF surface 는
+**명시 파라미터**로 받는다. BFF start URL 은 RP 백엔드의 정책 객체(스테이징·프록시·서명 URL)라
+SDK 가 임의로 변형하면 non-stock 배포가 깨진다 — v1.3.0 CHANGELOG 가 "명시적 opt-in 으로"
+남겨 둔 바로 그 지점이다. 첫 BFF 소비자(meetnote)가 생기면서 채워졌다.
+
+- 두 URL 은 같은 인가 요청이어야 한다. **launch 전에** 검증한다 — `state` 누락/빈값은
+  `.missingStateInStartURL`, 중복 `state` 키 또는 호스트 외의 어떤 차이(쿼리 byte·path·port·
+  scheme)든 신규 `.startURLPairMismatch`. state 만 비교하면 redirect_uri drift 가 핸드오프를
+  타임아웃까지 방치하고 PKCE drift 가 인증 후 교환을 깨뜨린다(codex P2). 거부 시점에는
+  아무것도 열려 있지 않다(single-flight 락도 잡기 전).
+- 권장 구성: 웹 URL 하나를 만들고 네이티브 URL 은 **호스트만 치환**해 파생 — 쿼리(state·nonce·
+  code_challenge)가 바이트 단위로 같아져 drift 가 구조적으로 불가능하다.
+- `nativeStartURL` 생략 = 기존 동작(양 갈래 `startURL`). claim 이 issuer 호스트에서 내려간 뒤에는
+  생략형의 first-try 가 앱을 못 띄우게 되므로, BFF RP 는 분리형으로 이동해야 한다.
+
+### 호환성
+
+- 추가만 한다. 기존 `authorize(startURL:)` 호출은 시그니처·동작 모두 불변.
+- `LogiAuthError` 에 `.startURLPairMismatch` 추가 — exhaustive switch 를 쓰는 RP 는 분기 하나가
+  필요하다(알려진 소비자 중엔 없음).
+
+---
+
 ## v1.3.0 — 미출시 (태그 대기)
 
 ### authorize 핸드오프 호스트 분리

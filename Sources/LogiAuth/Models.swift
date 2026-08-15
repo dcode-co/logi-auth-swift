@@ -177,13 +177,25 @@ public struct LogiCallback: Sendable, Equatable {
     }
 }
 
-public enum LogiAuthError: LocalizedError, Sendable {
+// `Equatable` is additive (all payloads are String/Int) — tests and RP retry
+// logic compare verdicts by value instead of reflecting on the description.
+public enum LogiAuthError: LocalizedError, Sendable, Equatable {
     case notConfigured
     case invalidAuthorizeURL
     /// `authorize(startURL:)` was handed a URL with no `state` query item. The
     /// RP's backend must put one there — without it the SDK cannot tell the
     /// callback for this flow apart from a stale or injected one.
     case missingStateInStartURL
+    /// `authorize(startURL:nativeStartURL:)` was handed a pair that is not the
+    /// same authorization request: the query or path differs beyond the host,
+    /// or a URL carries a duplicated `state`. The two URLs must be one request
+    /// on different hosts — a drifting `state` makes the fallback a different
+    /// transaction than the one the callback is matched against, a drifting
+    /// `redirect_uri` strands the handoff until timeout, and drifting PKCE
+    /// fails the backend exchange after the user already authenticated.
+    /// Launch-time input validation — nothing has been opened when this is
+    /// thrown.
+    case startURLPairMismatch
     case userCancelled
     case stateMismatch
     case missingCode
@@ -216,6 +228,8 @@ public enum LogiAuthError: LocalizedError, Sendable {
             return "/oauth/authorize URL을 만들 수 없습니다."
         case .missingStateInStartURL:
             return "authorize(startURL:) 에 넘긴 URL에 state 파라미터가 없습니다."
+        case .startURLPairMismatch:
+            return "startURL 과 nativeStartURL 이 같은 인가 요청이 아닙니다 — 호스트만 달라야 합니다."
         case .userCancelled:
             return "사용자가 로그인을 취소했습니다."
         case .stateMismatch:

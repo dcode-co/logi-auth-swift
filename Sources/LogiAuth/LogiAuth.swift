@@ -160,9 +160,27 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// `signIn()` has the same limit — treat a sign-in that never returns as one
     /// to retry, not one to resume. Do not persist the code or state to work
     /// around this; that would put a live authorization code in app storage.
+    ///
+    /// ## The authorize host split, BFF edition (v1.4.0)
+    ///
+    /// `nativeStartURL` is the same authorization request addressed to the host
+    /// that claims `/oauth/authorize*` as a Universal Link (stock:
+    /// `open.1pass.dev`), so the app-to-app first-try can launch the logi app.
+    /// `startURL` stays the browser leg. The SDK deliberately does **not**
+    /// derive one from the other — a BFF start URL is the RP backend's policy
+    /// object (staging, proxies, signed URLs), and rewriting it here would
+    /// break non-stock deployments. Build the native leg by swapping only the
+    /// host on the web leg's URL so the query cannot drift; the SDK rejects a
+    /// pair that is not the same request modulo host (`.startURLPairMismatch`)
+    /// **before** opening anything.
+    ///
+    /// Omitting `nativeStartURL` keeps the pre-split behaviour: both legs open
+    /// `startURL`. That is only correct while the App Link claim still sits on
+    /// the issuer host — once it moves off, a first-try at the issuer host
+    /// stops launching the app.
     @discardableResult
-    public static func authorize(startURL: URL) async throws -> LogiCallback {
-        try await shared.authorize(startURL: startURL)
+    public static func authorize(startURL: URL, nativeStartURL: URL? = nil) async throws -> LogiCallback {
+        try await shared.authorize(startURL: startURL, nativeStartURL: nativeStartURL)
     }
 
     /// Verify the id_token returned by `LogiAuthStorage.refresh()` and promote it
@@ -273,7 +291,64 @@ public final class LogiAuth: NSObject, ObservableObject {
     /// exchange, no id_token verification. Those belong to the RP backend in the
     /// BFF flow, and doing any of them here would put the verifier or the
     /// `client_secret` back on the device.
-    private func authorize(startURL: URL) async throws -> LogiCallback {
+    /// The `state` of an authorize start URL, with the three verdicts the
+    /// launch-time validation needs to tell apart. Duplicated `state` keys are
+    /// their own verdict rather than "first wins": which of the two the server
+    /// echoes back is server-dependent, and guessing wrong fails the callback
+    /// match after the user has already authenticated.
+    ///
+    /// `nonisolated` and static because it is pure — the input validation is
+    /// the part the tests pin, and it must be reachable without a live flow.
+    enum StartURLState: Equatable {
+        case one(String)
+        case missing
+        case duplicated
+    }
+
+    nonisolated static func readStartURLState(_ url: URL) -> StartURLState {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: true) else { return .missing }
+        let states = (comps.queryItems ?? []).filter { $0.name == "state" }.map { $0.value ?? "" }
+        if states.count > 1 { return .duplicated }
+        guard let only = states.first, !only.isEmpty else { return .missing }
+        return .one(only)
+    }
+
+    /// Launch-time validation of a `(startURL, nativeStartURL)` pair. Returns
+    /// the shared `state` on success. The contract is "the same authorization
+    /// request, host swapped": everything except the host — scheme, port, path
+    /// and the **byte-exact** query — must be identical. Comparing only `state`
+    /// would let `redirect_uri` drift strand the handoff until timeout, and let
+    /// PKCE drift fail the backend exchange after the user has already
+    /// authenticated. (codex review P2, 2026-08-15.)
+    ///
+    /// Pure and static so the tests can pin every verdict without arming a live
+    /// flow. Throws:
+    /// - `.missingStateInStartURL` — web leg has no usable `state`
+    /// - `.startURLPairMismatch` — duplicated `state` on either leg, or the
+    ///   pair differs beyond the host
+    nonisolated static func validateStartURLPair(
+        startURL: URL, nativeStartURL: URL?
+    ) throws -> String {
+        let state: String
+        switch readStartURLState(startURL) {
+        case .one(let value): state = value
+        case .missing: throw LogiAuthError.missingStateInStartURL
+        case .duplicated: throw LogiAuthError.startURLPairMismatch
+        }
+        guard let nativeStartURL else { return state }
+
+        guard
+            let web = URLComponents(url: startURL, resolvingAgainstBaseURL: true),
+            let native = URLComponents(url: nativeStartURL, resolvingAgainstBaseURL: true),
+            web.scheme?.lowercased() == native.scheme?.lowercased(),
+            web.port == native.port,
+            web.path == native.path,
+            web.percentEncodedQuery == native.percentEncodedQuery
+        else { throw LogiAuthError.startURLPairMismatch }
+        return state
+    }
+
+    private func authorize(startURL: URL, nativeStartURL: URL?) async throws -> LogiCallback {
         // `state` comes from the backend, embedded in the URL it built. Read it
         // back so the callback can be matched to this flow — the SDK is not
         // generating or validating it as a credential, only using it to tell
@@ -282,33 +357,22 @@ public final class LogiAuth: NSObject, ObservableObject {
         // Checked before `config` so a malformed URL is reported as a malformed
         // URL, and before `beginSingleFlight()` so a rejected argument never
         // holds the lock — that would block every later flow with
-        // `.alreadyInProgress`.
-        guard
-            let comps = URLComponents(url: startURL, resolvingAgainstBaseURL: true),
-            let state = comps.queryItems?.first(where: { $0.name == "state" })?.value,
-            !state.isEmpty
-        else { throw LogiAuthError.missingStateInStartURL }
+        // `.alreadyInProgress`. Nothing has been launched at this point, so a
+        // rejection cannot strand a half-open flow.
+        let state = try Self.validateStartURLPair(
+            startURL: startURL, nativeStartURL: nativeStartURL)
 
         guard let cfg = config else { throw LogiAuthError.notConfigured }
 
         let generation = try beginSingleFlight()
         defer { endSingleFlight(generation: generation) }
 
-        // Deliberately NOT host-split (v1.3.0). `signIn()` builds its own
-        // authorize URL, so the SDK can address the two legs separately; here
-        // the URL arrives whole from the RP's backend, which is the party that
-        // decided the host. Splitting it would mean the SDK overriding a
-        // backend's deployment choice from a client-side default — a policy
-        // call this SDK is not in a position to make, and one that would break
-        // any backend not on the stock production hosts. Both legs therefore
-        // keep using `startURL` exactly as given.
-        //
-        // Left open on purpose rather than forgotten: the flow is unreleased
-        // and has no consumers yet, so nothing is currently affected. When a
-        // BFF RP does ship, the fix belongs on the backend (emit the handoff
-        // host in the URL it mints) or in an explicit opt-in here.
+        // The BFF host split is explicit, never derived (v1.4.0) — the RP (or
+        // its backend) owns both URLs, and the SDK only checks that they are
+        // one transaction. `nativeStartURL == nil` keeps the pre-split
+        // single-URL behaviour.
         let callbackURL = try await acquireCallback(
-            nativeURL: startURL,
+            nativeURL: nativeStartURL ?? startURL,
             webURL: startURL,
             state: state,
             callbackScheme: cfg.redirectURI.scheme
